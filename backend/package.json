@@ -1,0 +1,17 @@
+{
+  "name": "rigwatch-hub-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "rm -rf ./dist/* && tsc && nodejs dist/index.js"
+  },
+  "author": "",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "@types/pg": "^7.4.9",
+    "@types/restify": "^5.0.8",
+    "pg": "^7.4.3"
+  }
+}
