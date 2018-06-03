@@ -27,8 +27,12 @@ export class RigServer {
 
 		socket.on('data', (data) => {
 			const rig: Rig = DataParser.parseData("" + data);
-			const i = this.rigs.findIndex((r) => r.rig.name == rig.name);
-			if(i === -1) this.registerRig(rig, socket);
+			let i = this.rigs.findIndex((r) => r.rig.name === rig.name);
+			if(i === -1){
+				this.registerRig(rig, socket);
+				i = this.rigs.length-1;
+			}
+
 			if(this.rigs[i].socket !== socket) this.rigs[i].socket = socket;
 		});
 
