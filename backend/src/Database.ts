@@ -1,6 +1,7 @@
 import {Client, QueryArrayResult, QueryResult} from 'pg';
 import {Rig} from './types/interface.Rig';
 import {Unit} from './types/interface.Unit';
+import * as moment from 'moment';
 
 export class Database {
 	client: Client;
@@ -79,6 +80,20 @@ export class Database {
 			const data: any[] = [rigName, unitId, unit.type.valueOf(), unit.make.valueOf(), unit.model];
 			this.client.query(query, data, (err: Error, res: QueryResult) => {
 				resolve();
+			});
+		});
+	}
+
+	public addReport(rig: Rig){
+		let query = "INSERT INTO reports (rig, time) VALUES ($1, $2) RETURNING id";
+		this.client.query(query, [rig.name, moment().format("YYYY-MM-DD HH:mm:ss")], (err: Error, res: QueryResult) => {
+			const reportId = res.rows[0]["id"];
+			query = "INSERT INTO report_data (report, unit, temp, speed) VALUES ($1, $2, $3, $4)";
+
+			this.client.query(query, [reportId, -1, null, rig.hashrate]);
+
+			rig.units.forEach((u, i) => {
+				this.client.query(query, [reportId, i, u.temp, u.hashrate]);
 			});
 		});
 	}

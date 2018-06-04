@@ -12,8 +12,11 @@ export class RigServer {
 
 	private rigs: ConnectedRig[] = [];
 
-	public constructor(database: Database){
+	private readonly collectionInterval: number;
+
+	public constructor(database: Database, collectionInterval: number){
 		this.database = database;
+		this.collectionInterval = collectionInterval;
 
 		this.server = net.createServer(s => this.connection(s));
 	}
@@ -21,20 +24,34 @@ export class RigServer {
 	public listen(port: number, host: string, callback?: () => void){
 		this.server.listen(port, host);
 		callback();
+
+		setInterval(() => this.collectData(), this.collectionInterval*1000*60);
+	}
+
+	public collectData(){
+		this.rigs.forEach((rig) => {
+			const buf: Buffer = new Buffer([0]);
+			rig.socket.write(buf);
+		});
 	}
 
 	private connection(socket: Socket){
 		console.log("Connection from %s", socket.remoteAddress);
 
 		socket.on('data', (data) => {
+			let reg = false;
+
 			const rig: Rig = DataParser.parseData("" + data);
 			let i = this.rigs.findIndex((r) => r.rig.name === rig.name);
 			if(i === -1){
 				this.registerRig(rig, socket);
 				i = this.rigs.length-1;
+				reg = true;
 			}
 
 			if(this.rigs[i].socket !== socket) this.rigs[i].socket = socket;
+
+			if(!reg) this.dataReport(rig);
 		});
 
 		// TODO: error handling
@@ -42,6 +59,11 @@ export class RigServer {
 		socket.on('end',() => this.deregisterRig(socket));
 		socket.on('error', (err) => this.deregisterRig(socket));
 		socket.on('timeout', () => this.deregisterRig(socket));
+	}
+
+	private dataReport(rig: Rig){
+		console.log("Receiving report");
+		this.database.addReport(rig);
 	}
 
 	private registerRig(rig: Rig, socket: Socket){
@@ -64,15 +86,13 @@ export class RigServer {
 			if(dbRig === null) this.database.newRig(rig.name).then(() => registerUnits(this.database));
 			else registerUnits(this.database);
 		});
-
-		console.log("New rig connected:");
-		console.log(rig);
 	}
 
 	private deregisterRig(socket: Socket){
 		const i = this.rigs.findIndex((r) => r.socket === socket);
-		if(i !== -1) this.rigs.slice(i, 1);
-
-		console.log(this.rigs);
+		if(i !== -1){
+			console.log("Deregistering %s: %s", socket.remoteAddress, this.rigs[i].rig.name);
+			this.rigs.splice(i, 1);
+		}
 	}
 }
