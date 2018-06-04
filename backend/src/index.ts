@@ -1,7 +1,6 @@
 import {BackendServer} from './backendServer/BackendServer';
 import {Database} from './Database';
 import {RigServer} from './rigServer/RigServer';
-import {DataParser} from './rigServer/DataParser';
 
 
 const database = new Database();

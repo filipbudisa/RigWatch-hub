@@ -4,6 +4,7 @@ import {Server, Socket} from 'net';
 import {ConnectedRig} from '../types/interface.ConnectedRig';
 import {Rig} from '../types/interface.Rig';
 import {DataParser} from './DataParser';
+import {Unit} from '../types/interface.Unit';
 
 export class RigServer {
 	private database: Database;
@@ -49,8 +50,19 @@ export class RigServer {
 			socket: socket
 		});
 
+		function registerUnits(db: Database){
+			db.rigGetUnits(rig.name).then((units: Unit[]) => {
+				rig.units.forEach((unit, i) => {
+					if(i >= units.length) db.addUnit(rig.name, i, unit);
+					else if(units[i].make !== unit.make || units[i].model !== unit.model || units[i].type != unit.type)
+						db.updateUnit(rig.name, i, unit);
+				});
+			});
+		}
+
 		this.database.getRig(rig.name).then((dbRig: Rig) => {
-			if(dbRig === null) this.database.newRig(rig.name);
+			if(dbRig === null) this.database.newRig(rig.name).then(() => registerUnits(this.database));
+			else registerUnits(this.database);
 		});
 
 		console.log("New rig connected:");

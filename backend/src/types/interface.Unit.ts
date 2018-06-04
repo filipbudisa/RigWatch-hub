@@ -6,6 +6,6 @@ export interface Unit {
 	make: UnitMake;
 	model: string;
 
-	temp: number;
-	hashrate: number;
+	temp?: number;
+	hashrate?: number;
 }
