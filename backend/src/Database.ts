@@ -22,7 +22,7 @@ export class Database {
 
 	public getRig(name: string){
 		return new Promise<Rig>((resolve, reject) => {
-			const query = "SELECT id, name FROM rigs WHERE name = $1";
+			const query = "SELECT name FROM rigs WHERE name = $1";
 			this.client.query(query, [name], (err: Error, res: QueryResult) => {
 				if(err !== null){
 					resolve(null);
