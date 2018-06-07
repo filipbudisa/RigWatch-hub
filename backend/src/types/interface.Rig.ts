@@ -2,9 +2,11 @@ import {Unit} from './interface.Unit';
 
 export interface Rig {
 	name: string;
-	units: Unit[];
+	units?: Unit[];
 
-	runtime: number;
-	hashrate: number;
-	shares: number;
+	runtime?: number;
+	hashrate?: number;
+	shares?: number;
+
+	nicename?: string;
 }

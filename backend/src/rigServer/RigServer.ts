@@ -5,6 +5,7 @@ import {ConnectedRig} from '../types/interface.ConnectedRig';
 import {Rig} from '../types/interface.Rig';
 import {DataParser} from './DataParser';
 import {Unit} from '../types/interface.Unit';
+import {DataClaymore} from '../types/data/interface.DataClaymore';
 
 export class RigServer {
 	private database: Database;
@@ -29,29 +30,42 @@ export class RigServer {
 	}
 
 	public collectData(){
-		this.rigs.forEach((rig) => {
-			const buf: Buffer = new Buffer([0]);
-			rig.socket.write(buf);
+		this.database.createReport().then((report) => {
+			const buf: Buffer = Buffer.allocUnsafe(5);
+			buf.writeUInt8(0, 0);
+			buf.writeUInt32LE(report, 1);
+
+			console.log(buf);
+
+			this.rigs.forEach((rig) => {
+				rig.socket.write(buf);
+			});
 		});
 	}
 
 	private connection(socket: Socket){
 		console.log("Connection from %s", socket.remoteAddress);
 
-		socket.on('data', (data) => {
-			let reg = false;
+		socket.on('data', (dataBuf: Buffer) => {
+			const data: string = "" + dataBuf;
 
-			const rig: Rig = DataParser.parseData("" + data);
-			let i = this.rigs.findIndex((r) => r.rig.name === rig.name);
-			if(i === -1){
-				this.registerRig(rig, socket);
-				i = this.rigs.length-1;
-				reg = true;
+			const dataIndex = data.indexOf("{");
+			const preData: string[] = data.substr(0, dataIndex).split(";");
+			const postData = data.substring(dataIndex);
+
+			const rig: Rig = DataParser.parseData(postData, preData[1]);
+
+			if(preData[0] === "reg"){
+				const i = this.rigs.findIndex((r) => r.rig.name === rig.name);
+
+				if(i === -1){
+					this.registerRig(rig, socket);
+				}else{
+					this.rigs[i].socket = socket;
+				}
+			}else if(preData[0] === "data"){
+				this.dataReport(parseFloat(preData[2]), rig);
 			}
-
-			if(this.rigs[i].socket !== socket) this.rigs[i].socket = socket;
-
-			if(!reg) this.dataReport(rig);
 		});
 
 		// TODO: error handling
@@ -59,11 +73,12 @@ export class RigServer {
 		socket.on('end',() => this.deregisterRig(socket));
 		socket.on('error', (err) => this.deregisterRig(socket));
 		socket.on('timeout', () => this.deregisterRig(socket));
+
+		setTimeout(() => this.collectData(), 5000);
 	}
 
-	private dataReport(rig: Rig){
-		console.log("Receiving report");
-		this.database.addReport(rig);
+	private dataReport(report: number, rig: Rig){
+		this.database.addReportData(report, rig);
 	}
 
 	private registerRig(rig: Rig, socket: Socket){
@@ -76,7 +91,7 @@ export class RigServer {
 			db.rigGetUnits(rig.name).then((units: Unit[]) => {
 				rig.units.forEach((unit, i) => {
 					if(i >= units.length) db.addUnit(rig.name, i, unit);
-					else if(units[i].make !== unit.make || units[i].model !== unit.model || units[i].type != unit.type)
+					else if(units[i].make !== unit.make || units[i].model !== unit.model || units[i].type !== unit.type)
 						db.updateUnit(rig.name, i, unit);
 				});
 			});
