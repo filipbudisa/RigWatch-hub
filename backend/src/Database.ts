@@ -22,12 +22,12 @@ export class Database {
 		await this.client.connect();
 	}
 
-	public getSetting(settingName: string){
+	public getSetting(settingName: string, def?: any){
 		return new Promise<any>((resolve, reject) => {
 			const query = "SELECT value FROM settings WHERE name = $1";
 			this.client.query(query, [settingName], (err: Error, res: QueryResult) => {
-				if(res.rowCount === 0) resolve("");
-				else resolve(res["value"]);
+				if(res.rowCount === 0) resolve(def);
+				else resolve(res[0]["value"]);
 			});
 		});
 	}
@@ -53,6 +53,15 @@ export class Database {
 				if(res.rowCount === 0) resolve(null);
 
 				resolve(<Rig> res.rows[0]);
+			});
+		});
+	}
+
+	public setRigNicename(rig: string, nicename: string){
+		return new Promise<void>((resolve, reject) => {
+			const query = "UPDATE rigs SET nicename = $2 WHERE name = $1";
+			this.client.query(query, [rig, nicename], (err: Error, res: QueryResult) => {
+				resolve();
 			});
 		});
 	}
@@ -141,11 +150,63 @@ export class Database {
 	 */
 	public getChartHashrate(start: string, end: string){
 		return new Promise<ChartPoint[]>((resolve, reject) => {
-			const query = "SELECT id, time, SUM(speed) " +
-				"FROM reports LEFT JOIN report_data ON reports.id = report_data.report " +
-				"WHERE time BETWEEN $2 AND $1 " +
-				"GROUP BY ";
-			this.client.query(query, [start, end], )
+			const query = "SELECT reports.time, SUM(speed) as hashrate \
+				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
+				WHERE reports.time BETWEEN $2 AND $1 \
+				GROUP BY reports.id";
+			this.client.query(query, [start, end], (err: Error, res: QueryArrayResult) => {
+				const points: ChartPoint[] = [];
+
+				res.rows.forEach((row) => points.push({ time: row["time"], value: parseFloat(row["hashrate"]) }));
+
+				resolve(points);
+			});
+		});
+	}
+
+	public getRigChartHashrate(start: string, end: string, rig: string){
+		return new Promise<ChartPoint[]>((resolve, reject) => {
+			const query = "SELECT reports.time, SUM(speed) as hashrate \
+				FROM reports LEFT JOIN report_data ON reports.id = report_data.report AND report_data.rig = $3 \
+				WHERE reports.time BETWEEN $2 AND $1 \
+				GROUP BY reports.id";
+			this.client.query(query, [start, end, rig], (err: Error, res: QueryArrayResult) => {
+				const points: ChartPoint[] = [];
+
+				res.rows.forEach((row) => points.push({ time: row["time"], value: parseFloat(row["hashrate"]) }));
+
+				resolve(points);
+			});
+		});
+	}
+
+	public getUnitChartHashrate(start: string, end: string, rig: string, unit: number){
+		return new Promise<ChartPoint[]>((resolve, reject) => {
+			const query = "SELECT reports.time, speed as hashrate \
+				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
+				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4";
+			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryArrayResult) => {
+				const points: ChartPoint[] = [];
+
+				res.rows.forEach((row) => points.push({ time: row["time"], value: parseFloat(row["hashrate"]) }));
+
+				resolve(points);
+			});
+		});
+	}
+
+	public getUnitChartTemp(start: string, end: string, rig: string, unit: number){
+		return new Promise<ChartPoint[]>((resolve, reject) => {
+			const query = "SELECT reports.time, temp \
+				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
+				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4";
+			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryResult) => {
+				const points: ChartPoint[] = [];
+
+				res.rows.forEach((row) => points.push({ time: row["time"], value: parseFloat(row["temp"]) }));
+
+				resolve(points);
+			});
 		});
 	}
 }

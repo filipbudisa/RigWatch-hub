@@ -5,8 +5,9 @@ export interface Rig {
 	units?: Unit[];
 
 	runtime?: number;
-	hashrate?: number;
 	shares?: number;
+
+	hashrate?: number;
 
 	nicename?: string;
 }
