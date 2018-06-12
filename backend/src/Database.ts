@@ -175,8 +175,8 @@ export class Database {
 	public getRigChartHashrate(start: string, end: string, rig: string){
 		return new Promise<ChartPoint[]>((resolve, reject) => {
 			const query = "SELECT reports.time, SUM(speed) as hashrate \
-				FROM reports LEFT JOIN report_data ON reports.id = report_data.report AND report_data.rig = $3 \
-				WHERE reports.time BETWEEN $2 AND $1 \
+				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
+				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 \
 				GROUP BY reports.id \
 				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end, rig], (err: Error, res: QueryArrayResult) => {
@@ -193,7 +193,8 @@ export class Database {
 		return new Promise<ChartPoint[]>((resolve, reject) => {
 			const query = "SELECT reports.time, speed as hashrate \
 				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4 \
+				AND report_data.unit = $4 \
+				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 \
 				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
@@ -209,7 +210,8 @@ export class Database {
 		return new Promise<ChartPoint[]>((resolve, reject) => {
 			const query = "SELECT reports.time, temp \
 				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4 \
+					AND report_data.rig = $3 AND report_data.unit = $4 \
+				WHERE reports.time BETWEEN $2 AND $1 \
 				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryResult) => {
 				const points: ChartPoint[] = [];
@@ -351,7 +353,7 @@ export class Database {
 		}
 
 		const query = "SELECT id, type, rig, unit, time FROM situations \
-			WHERE reported = FALSE AND dismissed = FALSE AND resolved is null AND (" + predicates.join(" OR ") + ")";
+			WHERE reported = FALSE AND resolved is null AND (" + predicates.join(" OR ") + ")";
 
 		return new Promise<Situation[]>((resolve, reject) => {
 			this.client.query(query, [], (err: Error, res: QueryResult) => {
