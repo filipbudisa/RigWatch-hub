@@ -3,7 +3,7 @@ import {Database} from './Database';
 import {RigServer} from './rigServer/RigServer';
 
 
-const pollRate = 1; // how often to fetch data from rigs (m)
+const pollRate = 10; // how often to fetch data from rigs (m)
 
 
 const database = new Database();

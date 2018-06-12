@@ -6,6 +6,10 @@ import {Rig} from '../types/interface.Rig';
 import {DataParser} from './DataParser';
 import {Unit} from '../types/interface.Unit';
 import Timer = NodeJS.Timer;
+import {SituationReporting} from '../types/interface.SituationReporting';
+import {Situation} from '../types/interface.Situation';
+import moment = require('moment');
+import * as nodemailer from "nodemailer";
 
 export class RigServer {
 	private database: Database;
@@ -14,13 +18,91 @@ export class RigServer {
 	private rigs: ConnectedRig[] = [];
 	private dataRequests: { id: number, callback: (Rig) => void, timeout: Timer }[] = [];
 
+	private rigReporting: number = null;
+	private unitReporting: number = null;
+
 	private readonly collectionInterval: number;
+
+	private mailTransporter;
 
 	public constructor(database: Database, collectionInterval: number){
 		this.database = database;
 		this.collectionInterval = collectionInterval;
 
 		this.server = net.createServer(s => this.connection(s));
+
+		this.updateReporting(() => {
+			setInterval(() => this.reportingCheck(), 60000);
+		});
+
+		this.mailTransporter = nodemailer.createTransport({
+			sendmail: true,
+			newline: "unix",
+			path: "/usr/sbin/sendmail"
+		});
+	}
+
+	public updateReporting(callback?: () => void){
+		const defReporting: SituationReporting = { enabled: false };
+		let i = 0;
+
+		this.database.getSetting("rig_reporting", JSON.stringify(defReporting)).then((data: string) => {
+			const rigReporting: SituationReporting = JSON.parse(data);
+
+			if(rigReporting.enabled) this.rigReporting = rigReporting.time;
+			else this.rigReporting = null;
+
+			if(++i === 2 && callback !== undefined) callback();
+		});
+
+		this.database.getSetting("unit_reporting", JSON.stringify(defReporting)).then((data: string) => {
+			const unitReporting: SituationReporting = JSON.parse(data);
+
+			if(unitReporting.enabled) this.unitReporting = unitReporting.time;
+			else this.unitReporting = null;
+
+			if(++i === 2 && callback !== undefined) callback();
+		});
+	}
+
+	private reportingCheck(){
+		// if(this.rigReporting === null && this.unitReporting === null) return;
+
+		this.database.getUnnotifiedSituations(1, 1).then((sits: Situation[]) => {
+			if(sits.length === 0) return;
+
+			this.database.getSetting("email", "").then((email: string) => {
+				if(email === "") return;
+
+				let report = "";
+				const sitIds: number[] = [];
+
+				sits.forEach((sit) => {
+					report += "Rig " + sit.rig;
+					if(sit.type === 1) report += " unit " + sit.unit;
+					report += " died " + moment(sit.time).format("LLL") + "\n";
+
+					sitIds.push(sit.id);
+				});
+
+				this.mailTransporter.sendMail({
+					from: "system@rig.sprint.ninja",
+					to: email,
+					subject: "Situation at rig.sprint.ninja",
+					text: report
+				}, (err, info) => {
+					if(err){
+						console.log("Email error: " + err);
+					}else{
+						this.database.situationReported(sitIds);
+					}
+				});
+			});
+		});
+	}
+
+	public checkRig(rig: string){
+		return this.rigs.findIndex((r) => r.rig.name === rig) !== -1;
 	}
 
 	public getRigData(rig: string, callback: (Rig) => void){
@@ -51,8 +133,6 @@ export class RigServer {
 		buf.writeUInt8(1, 0);
 		buf.writeUInt32LE(id, 1);
 
-		console.log(buf);
-
 		this.rigs[i].socket.write(buf);
 	}
 
@@ -60,6 +140,11 @@ export class RigServer {
 		let hashrate = 0;
 		let noData = 0;
 		const totalData = this.rigs.length;
+
+		if(totalData === 0){
+			callback(0);
+			return;
+		}
 
 		for(const rig of this.rigs){
 			this.getRigData(rig.rig.name, (rigData: Rig) => {
@@ -100,8 +185,6 @@ export class RigServer {
 
 			const rig: Rig = DataParser.parseData(postData, preData[1]);
 
-			console.log("Pre: " + preData);
-
 			if(preData[0] === "reg"){
 				const i = this.rigs.findIndex((r) => r.rig.name === rig.name);
 
@@ -122,6 +205,16 @@ export class RigServer {
 					request.callback(rig);
 				}
 			}
+
+			this.database.findUnitSituations(rig.name).then((units: number[]) => {
+				rig.units.forEach((u, i) => {
+					if(u.hashrate === 0 && units.findIndex((ui) => ui === i) === -1)
+						this.database.addSituation(rig.name, i);
+
+					if(u.hashrate !== 0 && units.findIndex((ui) => ui === i) !== -1)
+						this.database.resolveSituation(rig.name, i);
+				});
+			});
 		});
 
 		// TODO: error handling
@@ -157,13 +250,17 @@ export class RigServer {
 			if(dbRig === null) this.database.newRig(rig.name).then(() => registerUnits(this.database));
 			else registerUnits(this.database);
 		});
+
+		this.database.resolveSituation(rig.name);
 	}
 
 	private deregisterRig(socket: Socket){
 		const i = this.rigs.findIndex((r) => r.socket === socket);
-		if(i !== -1){
-			console.log("Deregistering %s: %s", socket.remoteAddress, this.rigs[i].rig.name);
-			this.rigs.splice(i, 1);
-		}
+		if(i === -1) return;
+
+		this.database.addSituation(this.rigs[i].rig.name);
+
+		console.log("Deregistering %s: %s", socket.remoteAddress, this.rigs[i].rig.name);
+		this.rigs.splice(i, 1);
 	}
 }

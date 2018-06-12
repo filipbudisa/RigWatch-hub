@@ -1,0 +1,15 @@
+<div id="header">
+	<h1>Overview</h1>
+</div>
+
+<div class="chart">
+	<h2>Hashrate</h2>
+	<span>{{ hashrate === undefined ? "..." : hashrate }} Mh/s</span>
+
+	<canvas *ngIf="chLoaded" baseChart width="3" height="1"
+			[data]="chData"
+			[chartType]="'line'"
+			[options]="chOptions"
+
+	></canvas>
+</div>

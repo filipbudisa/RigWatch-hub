@@ -3,6 +3,7 @@ import {Rig} from './types/interface.Rig';
 import {Unit} from './types/interface.Unit';
 import * as moment from 'moment';
 import {ChartPoint} from './types/interface.ChartPoint';
+import {Situation} from './types/interface.Situation';
 
 export class Database {
 	client: Client;
@@ -27,7 +28,7 @@ export class Database {
 			const query = "SELECT value FROM settings WHERE name = $1";
 			this.client.query(query, [settingName], (err: Error, res: QueryResult) => {
 				if(res.rowCount === 0) resolve(def);
-				else resolve(res[0]["value"]);
+				else resolve(res.rows[0]["value"]);
 			});
 		});
 	}
@@ -35,8 +36,10 @@ export class Database {
 	public setSetting(settingName: string, settingValue: any){
 		return new Promise<void>((resolve, reject) => {
 			const query = "INSERT INTO settings (name, value) VALUES ($1, $2) " +
-				"ON CONFLICT(name) DO UPDATE value = $2";
+				"ON CONFLICT(name) DO UPDATE SET value = $2";
 			this.client.query(query, [settingName, settingValue], (err: Error, res: QueryResult) => {
+				if(err) console.log(err);
+				if(res) console.log(res.command);
 				resolve();
 			});
 		});
@@ -44,13 +47,17 @@ export class Database {
 
 	public getRig(name: string){
 		return new Promise<Rig>((resolve, reject) => {
-			const query = "SELECT name FROM rigs WHERE name = $1";
+			const query = "SELECT name, nicename FROM rigs WHERE name = $1";
 			this.client.query(query, [name], (err: Error, res: QueryResult) => {
 				if(err !== null){
 					resolve(null);
+					return;
 				}
 
-				if(res.rowCount === 0) resolve(null);
+				if(res.rowCount === 0){
+					resolve(null);
+					return;
+				}
 
 				resolve(<Rig> res.rows[0]);
 			});
@@ -153,7 +160,8 @@ export class Database {
 			const query = "SELECT reports.time, SUM(speed) as hashrate \
 				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
 				WHERE reports.time BETWEEN $2 AND $1 \
-				GROUP BY reports.id";
+				GROUP BY reports.id \
+				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
 
@@ -169,7 +177,8 @@ export class Database {
 			const query = "SELECT reports.time, SUM(speed) as hashrate \
 				FROM reports LEFT JOIN report_data ON reports.id = report_data.report AND report_data.rig = $3 \
 				WHERE reports.time BETWEEN $2 AND $1 \
-				GROUP BY reports.id";
+				GROUP BY reports.id \
+				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end, rig], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
 
@@ -184,7 +193,8 @@ export class Database {
 		return new Promise<ChartPoint[]>((resolve, reject) => {
 			const query = "SELECT reports.time, speed as hashrate \
 				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4";
+				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4 \
+				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
 
@@ -199,13 +209,173 @@ export class Database {
 		return new Promise<ChartPoint[]>((resolve, reject) => {
 			const query = "SELECT reports.time, temp \
 				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4";
+				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 AND report_data.unit = $4 \
+				ORDER BY reports.id ASC";
 			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryResult) => {
 				const points: ChartPoint[] = [];
 
 				res.rows.forEach((row) => points.push({ time: row["time"], value: parseFloat(row["temp"]) }));
 
 				resolve(points);
+			});
+		});
+	}
+
+	public addSituation(rig: string, unit?: number){
+		return new Promise<void>((resolve, reject) => {
+			let query: string; // = "INSERT INTO situations (time) VALUES ($1) RETURNING id";
+			let values: any[];
+
+			if(unit === undefined){
+				query = "INSERT INTO situations (type, rig, time) VALUES ($1, $2, $3) RETURNING id";
+				values = [ 0, rig, moment().format("YYYY-MM-DD HH:mm:ss") ];
+			}else{
+				query = "INSERT INTO situations (type, rig, unit, time) VALUES ($1, $2, $3, $4) RETURNING id";
+				values = [ 1, rig, unit, moment().format("YYYY-MM-DD HH:mm:ss") ];
+			}
+
+			this.client.query(query, values, (err: Error, res: QueryResult) => {
+				if(err) console.log(err);
+				resolve();
+			});
+		});
+	}
+
+	public findSituation(rig: string, unit?: number){
+		return new Promise<number>((resolve, reject) => {
+			let query: string;
+			let values: any[];
+
+			if(unit === undefined){
+				query = "SELECT id FROM situations WHERE type = 0 AND rig = $1 AND resolved is null";
+				values = [ rig ];
+			}else{
+				query = "SELECT id FROM situations WHERE type = 1 AND rig = $1 AND unit = $2 AND resolved is null";
+				values = [ rig, unit ];
+			}
+
+			this.client.query(query, values, (err: Error, res: QueryResult) => {
+				if(res.rowCount === 0){
+					resolve(null);
+					return;
+				}
+
+				resolve(res.rows[0]["id"]);
+			});
+		});
+	}
+
+	public findUnitSituations(rig: string){
+		return new Promise<number[]>((resolve, reject) => {
+			const query = "SELECT unit FROM situations WHERE type = 1 AND rig = $1 AND resolved is null";
+
+			this.client.query(query, [rig], (err: Error, res: QueryResult) => {
+				const data: number[] = [];
+
+				if(res.rowCount === 0){
+					resolve([]);
+					return;
+				}
+
+				res.rows.forEach((row) => data.push(row["unit"]));
+
+				resolve(data);
+			});
+		});
+	}
+
+	public getSituations(page?: number){
+		if(page === undefined) page = 0;
+
+		return new Promise<{ situations: Situation[], more: boolean }>((resolve, reject) => {
+			const query = "SELECT * FROM situations ORDER BY id DESC LIMIT 10 OFFSET $1";
+			const data = { situations: <Situation[]> [], more: false };
+
+			this.client.query(query, [ 10*page ], (err: Error, res: QueryResult) => {
+				data.situations = <Situation[]> res.rows;
+				if(res.rowCount === 0){
+					resolve(data);
+					return;
+				}
+
+				this.client.query("SELECT MAX(id) as max FROM situations", (err2: Error, res2: QueryResult) => {
+					data.more = res.rows[0]["id"] === res2.rows[0]["max"];
+					resolve(data);
+				});
+			});
+		});
+	}
+
+	public resolveSituationById(id: number){
+		return new Promise<void>((resolve, reject) => {
+			const query = "UPDATE situations SET resolved = $2 WHERE id = $1";
+
+			this.client.query(query, [id, moment().format("YYYY-MM-DD HH:mm:ss")], (err: Error, res: QueryResult) => {
+				resolve();
+			});
+		});
+	}
+
+	public resolveSituation(rig: string, unit?: number){
+		return new Promise<void>((resolve, reject) => {
+			let query: string;
+			let values: any[];
+
+			if(unit === undefined){
+				query = "UPDATE situations SET resolved = $2 WHERE type = 0 AND rig = $1 AND resolved is null";
+				values = [ rig, moment().format("YYYY-MM-DD HH:mm:ss") ];
+			}else{
+				query = "UPDATE situations SET resolved = $3 WHERE type = 1 AND rig = $1 AND unit = $2 AND resolved is null";
+				values = [ rig, unit, moment().format("YYYY-MM-DD HH:mm:ss") ];
+			}
+
+			this.client.query(query, values, (err: Error, res: QueryResult) => {
+				resolve();
+			});
+		});
+	}
+
+	public getUnnotifiedSituations(rigTime: number, unitTime: number){
+		if(rigTime === null && unitTime === null){
+			return new Promise<Situation[]>((resolve => resolve([]) ));
+		}
+
+		const predicates: string[] = [];
+
+		if(rigTime !== null){
+			predicates.push("(type = 0 AND time < '" + moment().subtract(rigTime, "minutes").format("YYYY-MM-DD HH:mm:ss") + "')");
+		}
+
+		if(unitTime !== null){
+			predicates.push("(type = 1 AND time < '" + moment().subtract(unitTime, "minutes").format("YYYY-MM-DD HH:mm:ss") + "')");
+		}
+
+		const query = "SELECT id, type, rig, unit, time FROM situations \
+			WHERE reported = FALSE AND dismissed = FALSE AND resolved is null AND (" + predicates.join(" OR ") + ")";
+
+		return new Promise<Situation[]>((resolve, reject) => {
+			this.client.query(query, [], (err: Error, res: QueryResult) => {
+				if(res.rowCount === 0){
+					resolve([]);
+					return;
+				}
+
+				resolve(<Situation[]> res.rows);
+			});
+		});
+	}
+
+	public situationReported(situation: number | number[]){
+		let query: string;
+		if(situation instanceof Array){
+			query = "UPDATE situations SET reported = TRUE WHERE id IN (" + situation.join(",") + ")";
+		}else{
+			query = "UPDATE situations SET reported = TRUE WHERE id = " + situation;
+		}
+
+		return new Promise<void>((resolve, reject) => {
+			this.client.query(query, [], (err: Error, res: QueryResult) => {
+				resolve();
 			});
 		});
 	}

@@ -10,10 +10,14 @@
   "author": "",
   "license": "GPL-3.0",
   "dependencies": {
+    "@types/nodemailer": "^4.6.0",
     "@types/pg": "^7.4.9",
     "@types/restify": "^5.0.8",
+    "@types/restify-cors-middleware": "^1.0.1",
     "moment": "^2.22.2",
+    "nodemailer": "^4.6.6",
     "pg": "^7.4.3",
-    "restify": "^7.2.0"
+    "restify": "^7.2.0",
+    "restify-cors-middleware": "^1.1.1"
   }
 }

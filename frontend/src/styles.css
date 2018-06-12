@@ -1,1 +1,105 @@
-/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css?family=Open+Sans:300,400|Rokkitt:300|Sanchez');
+@import url('https://use.fontawesome.com/releases/v5.0.13/css/solid.css');
+@import url('https://use.fontawesome.com/releases/v5.0.13/css/fontawesome.css');
+
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0; padding: 0; border: 0;
+	font-size: 100%; font: inherit; vertical-align: baseline; }
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+	display: block; }
+body { line-height: 1; }
+ol, ul { list-style: none; }
+blockquote, q { quotes: none; }
+blockquote:before, blockquote:after,
+q:before, q:after { content: ''; content: none; }
+table { border-collapse: collapse; border-spacing: 0; }
+
+/* ### */
+
+@keyframes spin {
+	from { transform:rotate(0deg); }
+	to { transform:rotate(360deg); }
+}
+
+/* ### */
+
+* { outline: 0 !important; }
+html, body { min-height: 100%; }
+html { position: relative; }
+body { font-family: "Open Sans", sans-serif; font-size: 16px; background: #E7EEEF; }
+
+h1, h2, h3, h4, h5, h6 { font-family: "Sanchez", serif; }
+h1, h2, h3 { padding-bottom: 10px; }
+h1 { font-size: 40px; }
+h2 { font-size: 30px; }
+h3 { font-size: 26px; }
+h4 { font-size: 22px; }
+h5 { font-size: 18px; }
+h6 { font-size: 16px; }
+
+h1 span { font-family: "Rokkitt", serif; font-weight: 300; }
+
+a { text-decoration: none; color: #80CED7; }
+a:visited { color: inherit; }
+
+div { box-sizing: border-box; }
+
+/* ### */
+
+input, button { box-sizing: border-box; margin: 0; padding: 5px 10px; font-size: 16px; }
+input[type="text"] { height: 36px; margin: 0; border: 1px solid rgba(0, 0, 0, 0.1); background: #eff9fb; color: #465866; font-family: "Open Sans", sans-serif; }
+input[type="submit"], button { background: #465866; color: #fff; font-family: "Sanchez", serif; border: none; }
+input[type="submit"]:hover, button:hover { background: #5d7584; transition: background 0.3s ease; cursor: pointer; }
+
+input:focus, button:focus { box-shadow: 0 0 5px rgba(0, 0, 0, 0.1) inset; }
+button.disabled { pointer-events: none; cursor: progress; background: #89afc3; }
+button.disabled:hover { background: #89afc3; }
+
+app-sidebar { position: absolute; height: 100%; }
+#sidebar { width: 200px; height: 100%; float: left; padding-top: 20px; background: #465866; font-size: 18px; font-weight: 300; }
+	#sidebar li a { display: block; padding: 15px 10px; color: #fff; transition: background 0.3s ease; }
+	#sidebar li a:hover, #sidebar li.active a { background: #5d7584; }
+
+#content { padding: 25px 20px; padding-left: 220px; height: 100%; }
+
+#header { margin-bottom: 20px; border-bottom: 1px solid rgba(0,0, 0, 0.1); overflow: hidden; }
+	#header h1 { float: left; }
+	#header a.cog { display: block; float: right; width: 20px; height: 20px; margin-top: 10px;
+		font-size: 20px; color: #465866; cursor: pointer; }
+	#header a.cog:hover { animation: spin 2s infinite linear; }
+	#header .settings { float: right; margin-top: 3px; margin-right: 10px; max-width: 300px; overflow: hidden; height: 36px; transition: max-width 0.5s linear; }
+		#header .settings > div { width: 250px; }
+		#header .settings input[type="text"] { width: 200px; }
+	#header .settings.hidden { max-width: 0; }
+
+.chart { display: block; }
+	.chart h2, .chart h3 { float: left; font-family: "Rokkitt", serif; font-weight: 300; }
+	.chart span { float: right; padding: 5px 20px 0 0; }
+
+.row { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.1); overflow: hidden; }
+.row:last-child { border-bottom: none; margin-bottom: 0; }
+	.row .col { width: 50%; float: left; }
+
+.situation.active { background: rgba(255, 0, 0, 0.7); padding: 10px; border-bottom: none; color: #fff;localhost:4200
+}
+	.situation div:first-child { margin-bottom: 10px; }
+		.situation-unit, .situation-resolved { float: right; }

@@ -1,0 +1,53 @@
+<div id="header">
+	<h1>Rig <span>{{rig.nicename}} {{offline ? " - offline" : ""}}</span></h1>
+
+	<a class="fas fa-cog cog" (click)="showSettings = true"></a>
+	<div class="settings" [ngClass]="{ 'hidden': !showSettings }">
+		<div>
+			<input type="text" [(ngModel)]="this.nicename" />
+			<button (click)="setNicename()" [ngClass]="{ 'disabled': settingsWorking }">OK</button>
+		</div>
+	</div>
+</div>
+
+<div class="row">
+	<div class="chart">
+		<h2>Hashrate</h2>
+		<span>{{ rig.hashrate === undefined ? "..." : rig.hashrate }} Mh/s</span>
+
+		<canvas *ngIf="chLoaded" baseChart width="3" height="1"
+				[data]="chData"
+				[chartType]="'line'"
+				[options]="chOptions"
+
+		></canvas>
+	</div>
+</div>
+
+
+<div class="row" *ngFor="let unit of rig.units; let i = index">
+	<h2>Unit {{i}}</h2>
+	<div class="col chart">
+		<h3>Hashrate</h3>
+		<span>{{unit.hashrate}} Mh/s</span>
+
+		<canvas *ngIf="chLoaded" baseChart width="3" height="1"
+				[data]="chHashrates[i]"
+				[chartType]="'line'"
+				[options]="chOptions"
+
+		></canvas>
+	</div>
+
+	<div class="col chart">
+		<h3>Temp</h3>
+		<span>{{unit.temp}} °C</span>
+
+		<canvas *ngIf="chLoaded" baseChart width="3" height="1"
+				[data]="chTemps[i]"
+				[chartType]="'line'"
+				[options]="chOptions"
+
+		></canvas>
+	</div>
+</div>

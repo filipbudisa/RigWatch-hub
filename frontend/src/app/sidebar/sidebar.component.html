@@ -1,0 +1,7 @@
+<div id="sidebar">
+	<ul class="items">
+		<li><a routerLink="/">Overview</a></li>
+		<li><a routerLink="/rig/{{rig.name}}" *ngFor="let rig of dataStore.rigs">{{rig.nicename}}</a></li>
+		<li><a routerLink="/situations">Situations</a></li>
+	</ul>
+</div>
