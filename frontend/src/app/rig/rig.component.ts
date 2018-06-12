@@ -34,6 +34,12 @@ export class RigComponent implements OnInit {
 			this.offline = false;
 			this.rig = { name: params.get("rig"), units: [] };
 			this.rig.nicename = this.nicename = this.dataStore.getRigNicename(this.rig.name);
+
+			this.chData = [];
+			this.chHashrates = [];
+			this.chTemps = [];
+			this.chLoaded = false;
+			
 			this.loadRig();
 		});
 	}
@@ -51,8 +57,6 @@ export class RigComponent implements OnInit {
 
 		this.backend.getRigCharts({ start: start, end: end, rig: this.rig.name }).subscribe((data) => {
 			console.log(data);
-
-			this.chData = [];
 
 			data.chart.forEach((p) => {
 				this.chData.push({ x: p.time, y: p.value });
