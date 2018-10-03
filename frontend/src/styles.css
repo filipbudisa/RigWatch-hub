@@ -66,9 +66,13 @@ div { box-sizing: border-box; }
 /* ### */
 
 input, button { box-sizing: border-box; margin: 0; padding: 5px 10px; font-size: 16px; }
-input[type="text"] { height: 36px; margin: 0; border: 1px solid rgba(0, 0, 0, 0.1); background: #eff9fb; color: #465866; font-family: "Open Sans", sans-serif; }
+button.mini { font-size: 14px; padding: 2px 10px; }
+input[type="text"], input[type="number"] { height: 36px; margin: 0; border: 1px solid rgba(0, 0, 0, 0.1); background: #eff9fb; color: #465866; font-family: "Open Sans", sans-serif; }
 input[type="submit"], button { background: #465866; color: #fff; font-family: "Sanchez", serif; border: none; }
 input[type="submit"]:hover, button:hover { background: #5d7584; transition: background 0.3s ease; cursor: pointer; }
+.danger { background: rgba(255, 0, 0, 0.7); color: #fff; }
+
+input[type="datetime-local"] { height: 22px; background: #fff; padding: 0px 8px; font-size: 14px; color: #666; border: 1px solid #a8a7a8; }
 
 input:focus, button:focus { box-shadow: 0 0 5px rgba(0, 0, 0, 0.1) inset; }
 button.disabled { pointer-events: none; cursor: progress; background: #89afc3; }
@@ -86,20 +90,48 @@ app-sidebar { position: absolute; height: 100%; }
 	#header a.cog { display: block; float: right; width: 20px; height: 20px; margin-top: 10px;
 		font-size: 20px; color: #465866; cursor: pointer; }
 	#header a.cog:hover { animation: spin 2s infinite linear; }
-	#header .settings { float: right; margin-top: 3px; margin-right: 10px; max-width: 300px; overflow: hidden; height: 36px; transition: max-width 0.5s linear; }
-		#header .settings > div { width: 250px; }
-		#header .settings input[type="text"] { width: 200px; }
-	#header .settings.hidden { max-width: 0; }
+	#header button.act { float: right; padding: 5px 25px; margin-top: 10px; }
 
-.chart { display: block; }
+.control { clear: both; padding: 10px 0; border-top: 1px solid rgba(0,0, 0, 0.1); overflow: hidden; }
+	.control div.inline { float: left; margin-right: 10px; }
+	.control div.inline.right { float: right; }
+	.control.range div.inline { margin-right: 50px; }
+	.control div.inline:last-child { margin-right: 0; }
+		.control.range div.inline label { margin-right: 5px; }
+		.control div.inline input { margin-right: 10px; }
+	.control > div { overflow: hidden; margin-bottom: 10px; }
+	.control > div:last-child, .control.range > div { margin-bottom: 0; }
+
+	#auto_number { width: 60px; margin: 0 20px; }
+	#auto_mins, #power { width: 100px; margin: 0 10px; }
+
+	.control.settings { max-height: 0; padding: 0; border-width: 0; transition: max-height 0.5s ease, padding 0.5s ease, border-width 0.5s ease; }
+	.control.settings.shown { max-height: 100px; padding: 10px 0; border-width: 1px; }
+
+.setting { margin-bottom: 20px; overflow: hidden; }
+	.setting label { line-height: 36px; font-weight: 300; }
+	.setting input { float: right; width: 200px; }
+	.setting.check input { float: none; margin: 0 10px; width: auto; }
+	.setting.check input[type="number"] { width: 60px; }
+
+.chart { display: block; overflow: hidden; }
 	.chart h2, .chart h3 { float: left; font-family: "Rokkitt", serif; font-weight: 300; }
 	.chart span { float: right; padding: 5px 20px 0 0; }
+
+.stats { font-weight: 300; font-size: 18px; line-height: 1.4; }
+	.stats p { padding-bottom: 15px; }
+	.stats ul { padding-left: 10px; }
+		.stats ul li { padding-bottom: 5px; }
 
 .row { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.1); overflow: hidden; }
 .row:last-child { border-bottom: none; margin-bottom: 0; }
 	.row .col { width: 50%; float: left; }
+	.row.settings .col { width: 45%; margin-right: 5%; }
+	.row.stats .col { width: 30%; margin-right: 3%; }
 
-.situation.active { background: rgba(255, 0, 0, 0.7); padding: 10px; border-bottom: none; color: #fff;localhost:4200
-}
+.situation.active { background: rgba(255, 0, 0, 0.7); padding: 10px; border-bottom: none; color: #fff; }
 	.situation div:first-child { margin-bottom: 10px; }
 		.situation-unit, .situation-resolved { float: right; }
+
+.error { position: fixed; left: 0; top: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 200; background: rgba(0, 0, 0, 0.7); }
+	.error p { color: #fff; padding: 20px; background: #465866; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); }

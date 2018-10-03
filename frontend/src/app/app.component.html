@@ -4,6 +4,6 @@
 	<router-outlet></router-outlet>
 </div>
 
-<div class="shown" *ngIf="backend.error != undefined">
-	Greška
+<div class="error" *ngIf="backend.error != undefined">
+	<p>Error connecting to backend server.</p>
 </div>

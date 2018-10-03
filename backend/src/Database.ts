@@ -3,7 +3,8 @@ import {Rig} from './types/interface.Rig';
 import {Unit} from './types/interface.Unit';
 import * as moment from 'moment';
 import {ChartPoint} from './types/interface.ChartPoint';
-import {Situation} from './types/interface.Situation';
+import {Problem} from './types/interface.Problem';
+import {RigAutoReboot} from './types/interface.RigAutoReboot';
 
 export class Database {
 	client: Client;
@@ -11,11 +12,11 @@ export class Database {
 
 	public constructor(){
 		this.client = new Client({
-			user: "rigwatch",
-			password: "rigwatchlozinka",
-			host: "rig.sprint.ninja",
+			user: "",
+			password: "",
+			host: "",
 			port: 5432,
-			database: "rigwatch"
+			database: ""
 		});
 	}
 
@@ -25,7 +26,7 @@ export class Database {
 
 	public getSetting(settingName: string, def?: any){
 		return new Promise<any>((resolve, reject) => {
-			const query = "SELECT value FROM settings WHERE name = $1";
+			const query = "SELECT value FROM setting WHERE name = $1";
 			this.client.query(query, [settingName], (err: Error, res: QueryResult) => {
 				if(res.rowCount === 0) resolve(def);
 				else resolve(res.rows[0]["value"]);
@@ -33,21 +34,56 @@ export class Database {
 		});
 	}
 
+	public getSettings(settingName?: string[], def?: any){
+		return new Promise<any>((resolve, reject) => {
+			let query = "SELECT name, value FROM setting";
+
+			if(settingName){
+				query +=  "WHERE name IN ('" + settingName.join("', '") + "')";
+				// TODO: secure this
+			}
+
+			this.client.query(query, [], (err: Error, res: QueryResult) => {
+				const retVal: any = {};
+
+				res.rows.forEach((row) => {
+					retVal[row["name"]] = row["value"];
+				});
+
+				if(def){
+					Object.keys(def).forEach((key) => {
+						if(!retVal.hasOwnProperty(key)) retVal[key] = def[key];
+					});
+				}
+
+				resolve(retVal);
+			});
+		});
+	}
+
 	public setSetting(settingName: string, settingValue: any){
 		return new Promise<void>((resolve, reject) => {
-			const query = "INSERT INTO settings (name, value) VALUES ($1, $2) " +
+			const query = "INSERT INTO setting (name, value) VALUES ($1, $2) " +
 				"ON CONFLICT(name) DO UPDATE SET value = $2";
 			this.client.query(query, [settingName, settingValue], (err: Error, res: QueryResult) => {
-				if(err) console.log(err);
-				if(res) console.log(res.command);
 				resolve();
 			});
 		});
 	}
 
+	public setSettings(settings: any){
+		return new Promise<void>((resolve, reject) => {
+			Object.keys(settings).forEach((key) => {
+				this.setSetting(key, settings[key]);
+			});
+
+			resolve();
+		});
+	}
+
 	public getRig(name: string){
 		return new Promise<Rig>((resolve, reject) => {
-			const query = "SELECT name, nicename FROM rigs WHERE name = $1";
+			const query = "SELECT name, nicename, power FROM rig WHERE name = $1";
 			this.client.query(query, [name], (err: Error, res: QueryResult) => {
 				if(err !== null){
 					resolve(null);
@@ -66,16 +102,61 @@ export class Database {
 
 	public setRigNicename(rig: string, nicename: string){
 		return new Promise<void>((resolve, reject) => {
-			const query = "UPDATE rigs SET nicename = $2 WHERE name = $1";
+			const query = "UPDATE rig SET nicename = $2 WHERE name = $1";
 			this.client.query(query, [rig, nicename], (err: Error, res: QueryResult) => {
 				resolve();
 			});
 		});
 	}
 
+	public setRigPower(rig: string, power: number){
+		return new Promise<void>((resolve, reject) => {
+			const query = "UPDATE rig SET power = $2 WHERE name = $1";
+			this.client.query(query, [rig, power], (err: Error, res: QueryResult) => {
+				resolve();
+			});
+		});
+	}
+
+	public setRigAutoReboot(rig: string, autoReboot: RigAutoReboot){
+		return new Promise<void>((resolve, reject) => {
+			const query = "UPDATE rig SET auto_reboot = $2 WHERE name = $1";
+			this.client.query(query, [rig, autoReboot], (err: Error, res: QueryResult) => {
+				resolve();
+			});
+		});
+	}
+
+	public getRigAutoReboot(rig: string){
+		return new Promise<RigAutoReboot>((resolve, reject) => {
+			const def = <RigAutoReboot> { };
+
+			const query = "SELECT auto_reboot FROM rig WHERE name = $1";
+			this.client.query(query, [rig], (err: Error, res: QueryResult) => {
+				if(res.rowCount === 0 || !res.rows[0]["auto_reboot"] || res.rows[0]["auto_reboot"] === ""){
+					console.log(res.rows);
+					resolve(def);
+					return;
+				}
+
+				try{
+					const ret = res.rows[0]["auto_reboot"];
+
+					if(ret.hasOwnProperty("no_cards") && ret.hasOwnProperty("time"))
+						resolve(ret);
+					else
+						resolve(def);
+				}catch(e){
+					console.log(e);
+					resolve(def);
+				}
+			});
+		});
+	}
+
 	public newRig(name: string){
 		return new Promise<void>((resolve, reject) => {
-			const query = "INSERT INTO rigs (name) VALUES ($1)";
+			const query = "INSERT INTO rig (name) VALUES ($1)";
 			this.client.query(query, [name], (err: Error, res: QueryResult) => {
 				resolve();
 			});
@@ -84,16 +165,12 @@ export class Database {
 
 	public rigGetUnits(name: string){
 		return new Promise<Unit[]>((resolve, reject) => {
-			const query = "SELECT * FROM units WHERE rig = $1";
+			const query = "SELECT * FROM unit WHERE rig_name = $1";
 			this.client.query(query, [name], (err: Error, res: QueryArrayResult) => {
 				const units: Unit[] = [];
 
 				res.rows.forEach((row) => {
-					units.push(<Unit> {
-						type: row["tip"],
-						make: row["make"],
-						model: row["model"]
-					});
+					units.push(<Unit> {	}); // TODO: something
 				});
 
 				resolve(units);
@@ -103,35 +180,61 @@ export class Database {
 
 	public addUnit(rigName: string, unitId: number, unit: Unit){
 		return new Promise<void>((resolve, reject) => {
-			const query = "INSERT INTO units (rig, id, tip, make, model) VALUES ($1, $2, $3, $4, $5)";
-			const data: any[] = [rigName, unitId, unit.type.valueOf(), unit.make.valueOf(), unit.model];
+			const query = "INSERT INTO unit (rig_name, index) VALUES ($1, $2)";
+			const data: any[] = [rigName, unitId];
 			this.client.query(query, data, (err: Error, res: QueryResult) => {
 				resolve();
+			});
+		});
+	}
+
+	public rigDelete(rigName: string){
+		const query = [
+			"DELETE FROM report_data WHERE rig_name = $1",
+			"DELETE FROM problem WHERE rig_name = $1",
+			"DELETE FROM unit WHERE rig_name = $1",
+			"DELETE FROM rig WHERE name = $1"
+		];
+
+		query.forEach((q) => {
+			this.client.query(q, [rigName], (res, err) => {
+				if(err) console.log(err);
 			});
 		});
 	}
 
 	public updateUnit(rigName: string, unitId: number, unit: Unit){
-		return new Promise<void>((resolve, reject) => {
-			const query = "UPDATE units SET (tip, make, model) = ($3, $4, $5) WHERE rig = $1 AND id = $2";
+		return null;
+
+		/* return new Promise<void>((resolve, reject) => {
+			const query = "UPDATE unit SET (tip, make, model) = ($3, $4, $5) WHERE rig_name = $1 AND index = $2";
 			const data: any[] = [rigName, unitId, unit.type.valueOf(), unit.make.valueOf(), unit.model];
 			this.client.query(query, data, (err: Error, res: QueryResult) => {
 				resolve();
 			});
-		});
+		}); */
 	}
 
 	public createReport(){
 		return new Promise<number>((resolve, reject) => {
-			const query = "INSERT INTO reports (time) VALUES ($1) RETURNING id";
+			const query = "INSERT INTO report (time) VALUES ($1) RETURNING id";
 			this.client.query(query, [moment().format("YYYY-MM-DD HH:mm:ss")], (err: Error, res: QueryResult) => {
 				resolve(res.rows[0]["id"]);
 			});
 		});
 	}
 
+	public createReportDated(date: any){
+		return new Promise<number>((resolve, reject) => {
+			const query = "INSERT INTO report (time) VALUES ($1) RETURNING id";
+			this.client.query(query, [date.format("YYYY-MM-DD HH:mm:ss")], (err: Error, res: QueryResult) => {
+				resolve(res.rows[0]["id"]);
+			});
+		});
+	}
+
 	public addReportData(report: number, rig: Rig){
-		const query = "INSERT INTO report_data (report, rig, unit, temp, speed) VALUES ($1, $2, $3, $4, $5)";
+		const query = "INSERT INTO report_data (report_id, rig_name, unit_index, temp, hashrate) VALUES ($1, $2, $3, $4, $5)";
 
 		rig.units.forEach((unit, index) => {
 			this.client.query(query, [report, rig.name, index, unit.temp, unit.hashrate]);
@@ -140,7 +243,7 @@ export class Database {
 
 	public getRigs(){
 		return new Promise<Rig[]>((resolve, reject) => {
-			const query = "SELECT name, nicename FROM rigs";
+			const query = "SELECT name, nicename FROM rig";
 			const rigs: Rig[] = [];
 			this.client.query(query, (err: Error, result: QueryArrayResult) => {
 				result.rows.forEach((r) => rigs.push({ name: r["name"], nicename: r["nicename"] }));
@@ -151,17 +254,17 @@ export class Database {
 
 	/**
 	 *
-	 * @param {string} start New
-	 * @param {string} end Old
+	 * @param {string} start Old
+	 * @param {string} end New
 	 * @return {Promise<ChartPoint[]>}
 	 */
 	public getChartHashrate(start: string, end: string){
 		return new Promise<ChartPoint[]>((resolve, reject) => {
-			const query = "SELECT reports.time, SUM(speed) as hashrate \
-				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				WHERE reports.time BETWEEN $2 AND $1 \
-				GROUP BY reports.id \
-				ORDER BY reports.id ASC";
+			const query = "SELECT report.time, SUM(hashrate) as hashrate \
+				FROM report LEFT JOIN report_data ON report.id = report_data.report_id \
+				WHERE report.time BETWEEN $1 AND $2 \
+				GROUP BY report.id \
+				ORDER BY report.id ASC";
 			this.client.query(query, [start, end], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
 
@@ -174,11 +277,11 @@ export class Database {
 
 	public getRigChartHashrate(start: string, end: string, rig: string){
 		return new Promise<ChartPoint[]>((resolve, reject) => {
-			const query = "SELECT reports.time, SUM(speed) as hashrate \
-				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 \
-				GROUP BY reports.id \
-				ORDER BY reports.id ASC";
+			const query = "SELECT report.time, SUM(hashrate) as hashrate \
+				FROM report LEFT JOIN report_data ON report.id = report_data.report_id \
+				WHERE report.time BETWEEN $1 AND $2 AND report_data.rig_name = $3 \
+				GROUP BY report.id \
+				ORDER BY report.id ASC";
 			this.client.query(query, [start, end, rig], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
 
@@ -191,11 +294,11 @@ export class Database {
 
 	public getUnitChartHashrate(start: string, end: string, rig: string, unit: number){
 		return new Promise<ChartPoint[]>((resolve, reject) => {
-			const query = "SELECT reports.time, speed as hashrate \
-				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-				AND report_data.unit = $4 \
-				WHERE reports.time BETWEEN $2 AND $1 AND report_data.rig = $3 \
-				ORDER BY reports.id ASC";
+			const query = "SELECT report.time, hashrate \
+				FROM report LEFT JOIN report_data ON report.id = report_data.report_id \
+				AND report_data.unit_index = $4 \
+				WHERE report.time BETWEEN $1 AND $2 AND report_data.rig_name = $3 \
+				ORDER BY report.id ASC";
 			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryArrayResult) => {
 				const points: ChartPoint[] = [];
 
@@ -208,11 +311,11 @@ export class Database {
 
 	public getUnitChartTemp(start: string, end: string, rig: string, unit: number){
 		return new Promise<ChartPoint[]>((resolve, reject) => {
-			const query = "SELECT reports.time, temp \
-				FROM reports LEFT JOIN report_data ON reports.id = report_data.report \
-					AND report_data.rig = $3 AND report_data.unit = $4 \
-				WHERE reports.time BETWEEN $2 AND $1 \
-				ORDER BY reports.id ASC";
+			const query = "SELECT report.time, temp \
+				FROM report LEFT JOIN report_data ON report.id = report_data.report_id \
+					AND report_data.rig_name = $3 AND report_data.unit_index = $4 \
+				WHERE report.time BETWEEN $1 AND $2 \
+				ORDER BY report.id ASC";
 			this.client.query(query, [start, end, rig, unit], (err: Error, res: QueryResult) => {
 				const points: ChartPoint[] = [];
 
@@ -223,16 +326,16 @@ export class Database {
 		});
 	}
 
-	public addSituation(rig: string, unit?: number){
+	public addProblem(rig: string, unit?: number){
 		return new Promise<void>((resolve, reject) => {
 			let query: string; // = "INSERT INTO situations (time) VALUES ($1) RETURNING id";
 			let values: any[];
 
 			if(unit === undefined){
-				query = "INSERT INTO situations (type, rig, time) VALUES ($1, $2, $3) RETURNING id";
+				query = "INSERT INTO problem (type, rig_name, time) VALUES ($1, $2, $3) RETURNING id";
 				values = [ 0, rig, moment().format("YYYY-MM-DD HH:mm:ss") ];
 			}else{
-				query = "INSERT INTO situations (type, rig, unit, time) VALUES ($1, $2, $3, $4) RETURNING id";
+				query = "INSERT INTO problem (type, rig_name, unit_index, time) VALUES ($1, $2, $3, $4) RETURNING id";
 				values = [ 1, rig, unit, moment().format("YYYY-MM-DD HH:mm:ss") ];
 			}
 
@@ -243,16 +346,16 @@ export class Database {
 		});
 	}
 
-	public findSituation(rig: string, unit?: number){
+	public findProblem(rig: string, unit?: number){
 		return new Promise<number>((resolve, reject) => {
 			let query: string;
 			let values: any[];
 
 			if(unit === undefined){
-				query = "SELECT id FROM situations WHERE type = 0 AND rig = $1 AND resolved is null";
+				query = "SELECT id FROM problem WHERE type = 0 AND rig_name = $1 AND resolved is null";
 				values = [ rig ];
 			}else{
-				query = "SELECT id FROM situations WHERE type = 1 AND rig = $1 AND unit = $2 AND resolved is null";
+				query = "SELECT id FROM problem WHERE type = 1 AND rig_name = $1 AND unit_index = $2 AND resolved is null";
 				values = [ rig, unit ];
 			}
 
@@ -267,9 +370,9 @@ export class Database {
 		});
 	}
 
-	public findUnitSituations(rig: string){
+	public findUnitsWithProblems(rig: string){
 		return new Promise<number[]>((resolve, reject) => {
-			const query = "SELECT unit FROM situations WHERE type = 1 AND rig = $1 AND resolved is null";
+			const query = "SELECT unit_index FROM problem WHERE type = 1 AND rig_name = $1 AND resolved is null";
 
 			this.client.query(query, [rig], (err: Error, res: QueryResult) => {
 				const data: number[] = [];
@@ -279,28 +382,28 @@ export class Database {
 					return;
 				}
 
-				res.rows.forEach((row) => data.push(row["unit"]));
+				res.rows.forEach((row) => data.push(row["unit_index"]));
 
 				resolve(data);
 			});
 		});
 	}
 
-	public getSituations(page?: number){
+	public getProblems(page?: number){
 		if(page === undefined) page = 0;
 
-		return new Promise<{ situations: Situation[], more: boolean }>((resolve, reject) => {
-			const query = "SELECT * FROM situations ORDER BY id DESC LIMIT 10 OFFSET $1";
-			const data = { situations: <Situation[]> [], more: false };
+		return new Promise<{ problems: Problem[], more: boolean }>((resolve, reject) => {
+			const query = "SELECT * FROM problem ORDER BY id DESC LIMIT 10 OFFSET $1";
+			const data = { problems: <Problem[]> [], more: false };
 
 			this.client.query(query, [ 10*page ], (err: Error, res: QueryResult) => {
-				data.situations = <Situation[]> res.rows;
+				data.problems = <Problem[]> res.rows;
 				if(res.rowCount === 0){
 					resolve(data);
 					return;
 				}
 
-				this.client.query("SELECT MAX(id) as max FROM situations", (err2: Error, res2: QueryResult) => {
+				this.client.query("SELECT MAX(id) as max FROM problem", (err2: Error, res2: QueryResult) => {
 					data.more = res.rows[0]["id"] === res2.rows[0]["max"];
 					resolve(data);
 				});
@@ -308,9 +411,9 @@ export class Database {
 		});
 	}
 
-	public resolveSituationById(id: number){
+	public resolveProblemById(id: number){
 		return new Promise<void>((resolve, reject) => {
-			const query = "UPDATE situations SET resolved = $2 WHERE id = $1";
+			const query = "UPDATE problem SET resolved = $2 WHERE id = $1";
 
 			this.client.query(query, [id, moment().format("YYYY-MM-DD HH:mm:ss")], (err: Error, res: QueryResult) => {
 				resolve();
@@ -318,16 +421,16 @@ export class Database {
 		});
 	}
 
-	public resolveSituation(rig: string, unit?: number){
+	public resolveProblem(rig: string, unit?: number){
 		return new Promise<void>((resolve, reject) => {
 			let query: string;
 			let values: any[];
 
 			if(unit === undefined){
-				query = "UPDATE situations SET resolved = $2 WHERE type = 0 AND rig = $1 AND resolved is null";
+				query = "UPDATE problem SET resolved = $2 WHERE type = 0 AND rig_name = $1 AND resolved is null";
 				values = [ rig, moment().format("YYYY-MM-DD HH:mm:ss") ];
 			}else{
-				query = "UPDATE situations SET resolved = $3 WHERE type = 1 AND rig = $1 AND unit = $2 AND resolved is null";
+				query = "UPDATE problem SET resolved = $3 WHERE type = 1 AND rig_name = $1 AND unit_name = $2 AND resolved is null";
 				values = [ rig, unit, moment().format("YYYY-MM-DD HH:mm:ss") ];
 			}
 
@@ -337,9 +440,9 @@ export class Database {
 		});
 	}
 
-	public getUnnotifiedSituations(rigTime: number, unitTime: number){
+	public getUnnotifiedProblems(rigTime: number, unitTime: number){
 		if(rigTime === null && unitTime === null){
-			return new Promise<Situation[]>((resolve => resolve([]) ));
+			return new Promise<Problem[]>((resolve => resolve([]) ));
 		}
 
 		const predicates: string[] = [];
@@ -352,32 +455,73 @@ export class Database {
 			predicates.push("(type = 1 AND time < '" + moment().subtract(unitTime, "minutes").format("YYYY-MM-DD HH:mm:ss") + "')");
 		}
 
-		const query = "SELECT id, type, rig, unit, time FROM situations \
+		const query = "SELECT id, type, rig_name, unit_index, time FROM problem \
 			WHERE reported = FALSE AND resolved is null AND (" + predicates.join(" OR ") + ")";
 
-		return new Promise<Situation[]>((resolve, reject) => {
+		return new Promise<Problem[]>((resolve, reject) => {
 			this.client.query(query, [], (err: Error, res: QueryResult) => {
+				if(err) console.log(err);
+
 				if(res.rowCount === 0){
 					resolve([]);
 					return;
 				}
 
-				resolve(<Situation[]> res.rows);
+				resolve(<Problem[]> res.rows);
 			});
 		});
 	}
 
-	public situationReported(situation: number | number[]){
+	public problemReported(situation: number | number[]){
 		let query: string;
 		if(situation instanceof Array){
-			query = "UPDATE situations SET reported = TRUE WHERE id IN (" + situation.join(",") + ")";
+			query = "UPDATE problem SET reported = TRUE WHERE id IN (" + situation.join(",") + ")";
 		}else{
-			query = "UPDATE situations SET reported = TRUE WHERE id = " + situation;
+			query = "UPDATE problem SET reported = TRUE WHERE id = " + situation;
 		}
 
 		return new Promise<void>((resolve, reject) => {
 			this.client.query(query, [], (err: Error, res: QueryResult) => {
 				resolve();
+			});
+		});
+	}
+
+	public getRigDeadUnits(rig: string){
+		const query = "select count(unit_index) as count, max(time) as time from problem where rig_name = $1 and resolved is null";
+
+		return new Promise<{ count: number, time: string }>((resolve, reject) => {
+			this.client.query(query, [rig], (err: Error, res: QueryResult) => {
+				if(res.rowCount === 0){
+					resolve({ count: 0, time: "" });
+					return;
+				}
+
+				resolve(res.rows[0]);
+			});
+		});
+	}
+
+	public getRigFailures(start: string, end: string){
+		const query = "select count(*) as count, rig_name from problem " +
+			"where type = 0 and time between $1 and $2 group by rig_name " +
+			"order by count desc";
+
+		return new Promise<{ count: number, rig_name: string }[]>((resolve, reject) => {
+			this.client.query(query, [start, end], (err: Error, res: QueryResult) => {
+				resolve(res.rows);
+			});
+		});
+	}
+
+	public getUnitFailures(start: string, end: string){
+		const query = "select count(*) as count, rig_name, unit_index from problem " +
+			"where type = 1 and time between $1 and $2 group by rig_name, unit_index " +
+			"order by count desc";
+
+		return new Promise<{ count: number, rig_name: string, unit_index: number }[]>((resolve, reject) => {
+			this.client.query(query, [start, end], (err: Error, res: QueryResult) => {
+				resolve(res.rows);
 			});
 		});
 	}

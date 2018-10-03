@@ -1,18 +1,18 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpErrorResponse, HttpEvent, HttpHeaders } from "@angular/common/http";
 import { Router } from "@angular/router";
-import "rxjs/add/operator/share";
-import "rxjs/add/operator/publish";
 import { ACObservable } from "./ACObservable";
 import { Returnable } from "../../../backend/src/types/returnables/interface.Returnable";
 import { RigsRet } from "../../../backend/src/types/returnables/interface.Rigs";
 import { ChartRet } from "../../../backend/src/types/returnables/interface.Chart";
 import { ChartParams } from "../../../backend/src/types/returnables/interface.ChartParams";
 import { RigChartsRet } from "../../../backend/src/types/returnables/interface.RigCharts";
-import { Coins } from "../../../backend/src/types/enum.Coins";
 import { Rig } from "../../../backend/src/types/interface.Rig";
-import { Situation } from "../../../backend/src/types/interface.Situation";
-import { SituationReporting } from "../../../backend/src/types/interface.SituationReporting";
+import { Problem } from "../../../backend/src/types/interface.Problem";
+import { RigAutoReboot } from "../../../backend/src/types/interface.RigAutoReboot";
+import { Settings } from "../../../backend/src/types/interface.Settings";
+import { publish } from "rxjs/operators";
+import { ConnectableObservable } from "rxjs/internal/observable/ConnectableObservable";
 
 
 @Injectable()
@@ -26,20 +26,26 @@ export class BackendService {
 
 	static readonly endpoints: any = {
 		get_rigs: "/get_rigs",
-		get_coin: "/get_rigs",
-		set_coin: "/set_rigs",
 		get_hashrate: "/get_hashrate",
 		get_chart: "/get_chart",
 		get_rig: "/get_rig",
 		get_rig_numbers: "/get_rig_numbers",
 		get_rig_charts: "/get_rig_charts",
 		set_rig_nicename: "/set_rig_nicename",
-		get_situations: "/get_situations",
-		get_reporting: "/get_reporting",
-		set_rig_reporting: "/set_rig_reporting",
-		set_unit_reporting: "/set_unit_reporting",
-		set_email: "/set_email",
-		get_email: "/get_email"
+		get_problems: "/get_problems",
+
+		set_rig_power: "/set_rig_power",
+		get_rig_autoreboot: "/get_rig_autoreboot",
+		set_rig_autoreboot: "/set_rig_autoreboot",
+
+		rig_restart: "/rig_restart",
+		rig_reboot: "/rig_reboot",
+		rig_delete: "/rig_delete",
+
+		get_settings: "/get_settings",
+		set_settings: "/set_settings",
+
+		get_statistics: "/get_statistics"
 	};
 
 	public static getMessage(result: Returnable): string{
@@ -69,7 +75,7 @@ export class BackendService {
 
 	private checker(endpoint: string, data?: any): ACObservable<any>{
 		const result: ACObservable<any> = new ACObservable<any>(
-			this.http.post(this.url(endpoint), data, this.options).publish());
+			this.http.post(this.url(endpoint), data, this.options).pipe(publish()) as ConnectableObservable<any>);
 
 		result.autoConnect(2);
 
@@ -89,15 +95,6 @@ export class BackendService {
 
 	public getRigs(): ACObservable<RigsRet> {
 		return this.checker(BackendService.endpoints.get_rigs);
-	}
-
-	public getCoin(): ACObservable<Returnable & { coin: Coins }> {
-		return this.checker(BackendService.endpoints.get_coin);
-	}
-
-	public setCoin(coin: Coins): ACObservable<void> {
-		const data = { coin: coin };
-		return this.checker(BackendService.endpoints.set_coin, data);
 	}
 
 	public getHashrate(): ACObservable<Returnable & { hashrate: number }>{
@@ -127,32 +124,55 @@ export class BackendService {
 		return this.checker(BackendService.endpoints.set_rig_nicename, data);
 	}
 
-	public getSituations(page?: number): ACObservable<Returnable & { situations: Situation[], more: boolean }> {
+	public getSituations(page?: number): ACObservable<Returnable & { problems: Problem[], more: boolean }> {
 		if(page === undefined) page = 0;
 		const data = { page: page };
-		return this.checker(BackendService.endpoints.get_situations, data);
+		return this.checker(BackendService.endpoints.get_problems, data);
 	}
 
-	public getReporting(): ACObservable<SituationReporting[]> {
-		return this.checker(BackendService.endpoints.get_reporting);
+	public setRigPower(rig: string, power: number){
+		const data = { rig: rig, power: power };
+		return this.checker(BackendService.endpoints.set_rig_power, data);
 	}
 
-	public setRigReporting(enabled: boolean, time: number): ACObservable<Returnable> {
-		const data: SituationReporting = { enabled: enabled, time: time, type: 0 };
-		return this.checker(BackendService.endpoints.set_rig_reporting, data);
+	public getRigAutoreboot(rig: string): ACObservable<Returnable & { autoReboot: RigAutoReboot }> {
+		const data = { rig: rig };
+		return this.checker(BackendService.endpoints.get_rig_autoreboot, data);
 	}
 
-	public setUnitReporting(enabled: boolean, time: number): ACObservable<Returnable> {
-		const data: SituationReporting = { enabled: enabled, time: time, type: 1 };
-		return this.checker(BackendService.endpoints.set_unit_reporting, data);
+	public setRigAutoreboot(rig: string, autoReboot: any) {
+		const data = { rig: rig, autoReboot: autoReboot };
+		return this.checker(BackendService.endpoints.set_rig_autoreboot, data);
 	}
 
-	public getEmail(): ACObservable<Returnable & { email: string }> {
-		return this.checker(BackendService.endpoints.get_email);
+	public rigRestart(rig: string){
+		const data = { rig: rig };
+		return this.checker(BackendService.endpoints.rig_restart, data);
 	}
 
-	public setEmail(email: string): ACObservable<Returnable> {
-		const data = { email: email };
-		return this.checker(BackendService.endpoints.set_email, data);
+	public rigReboot(rig: string){
+		const data = { rig: rig };
+		return this.checker(BackendService.endpoints.rig_reboot, data);
+	}
+
+	public rigRemove(rig: string){
+		const data = { rig: rig };
+		return this.checker(BackendService.endpoints.rig_delete, data);
+	}
+
+	public getSettings(): ACObservable<Returnable & { settings: Settings }> {
+		return this.checker(BackendService.endpoints.get_settings);
+	}
+
+	public setSettings(settings: Settings){
+		return this.checker(BackendService.endpoints.set_settings, settings);
+	}
+
+	public getStatistics(params: ChartParams): ACObservable<Returnable & { stats: {
+		rig: { rig_name: string, count: number }[],
+		unit: { rig_name: string, unit_index: number, count: number }[],
+		earnings: number }
+	}>{
+		return this.checker(BackendService.endpoints.get_statistics, params);
 	}
 }

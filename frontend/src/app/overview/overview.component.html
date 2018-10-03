@@ -1,15 +1,44 @@
 <div id="header">
 	<h1>Overview</h1>
+
+	<div class="control range">
+		<div class="inline">
+			<label for="date_start">Start date:</label>
+			<input type="datetime-local" id="date_start" [(ngModel)]="startDate" />
+		</div>
+
+		<div class="inline">
+			<label for="date_end">End date:</label>
+			<input type="datetime-local" id="date_end" [(ngModel)]="endDate" />
+		</div>
+
+		<div class="inline">
+			<button (click)="loadCharts()" class="mini">GO</button>
+		</div>
+	</div>
 </div>
 
 <div class="chart">
 	<h2>Hashrate</h2>
-	<span>{{ hashrate === undefined ? "..." : hashrate }} Mh/s</span>
+	<span>{{ hashrate === undefined ? "..." : hashrate }} kh/s</span>
 
-	<canvas *ngIf="chLoaded" baseChart width="3" height="1"
-			[data]="chData"
-			[chartType]="'line'"
-			[options]="chOptions"
+	<rw-chart [data]="chData">
 
-	></canvas>
+	</rw-chart>
+</div>
+
+<div class="chart">
+	<h2>Ethereum</h2>
+	<span>{{ ethPrice === undefined ? "..." : ethPrice }} EUR</span>
+
+	<rw-chart [data]="ethData">
+
+	</rw-chart>
+</div>
+
+<div class="chart">
+	<h2>Net earnings</h2>
+	<span>{{ netWorth ? netWorth : "..." }} EUR/day</span>
+
+	<rw-chart [data]="zData"></rw-chart>
 </div>

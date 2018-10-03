@@ -1,0 +1,44 @@
+<div id="header">
+	<h1>Settings</h1>
+
+	<button (click)="saveSettings()" [ngClass]="{ 'disabled': working, 'act': true }">Save</button>
+</div>
+
+<div class="row settings">
+	<div class="col">
+		<div class="setting">
+			<label for="interval">Time between data reports (minutes):</label>
+			<input type="number" id="interval" [(ngModel)]="settings.reportInterval" [disabled]="working" />
+		</div>
+
+		<div class="setting">
+			<label for="email">Problem reporting email address:</label>
+			<input type="text" id="email" [(ngModel)]="settings.notifEmail" [disabled]="working" />
+		</div>
+
+		<div class="setting">
+			<label for="price">kWh price (in €):</label>
+			<input type="number" id="price" [(ngModel)]="settings.powerPrice" [disabled]="working" />
+		</div>
+	</div>
+
+	<div class="col">
+		<div class="setting check">
+			<input type="checkbox" id="reportrig" [disabled]="working" [checked]="settings.rigReporting.enabled" (change)="settings.rigReporting.enabled = !settings.rigReporting.enabled" />
+			<label for="reportrig">Report rig failure </label>
+
+			<label for="rig">after</label>
+			<input type="number" id="rig" [disabled]="working" [(ngModel)]="settings.rigReporting.time" />
+			<label for="rig">minutes</label>
+		</div>
+
+		<div class="setting check">
+			<input type="checkbox" id="reportunit" [disabled]="working" [checked]="settings.unitReporting.enabled" (change)="settings.unitReporting.enabled = !settings.unitReporting.enabled" />
+			<label for="reportunit">Report unit failure </label>
+
+			<label for="unit">after</label>
+			<input type="number" id="unit" [disabled]="working" [(ngModel)]="settings.unitReporting.time" />
+			<label for="unit">minutes</label>
+		</div>
+	</div>
+</div>

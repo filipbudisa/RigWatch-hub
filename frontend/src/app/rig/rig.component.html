@@ -1,11 +1,56 @@
 <div id="header">
 	<h1>Rig <span>{{rig.nicename}} {{offline ? " - offline" : ""}}</span></h1>
 
-	<a class="fas fa-cog cog" (click)="showSettings = true"></a>
-	<div class="settings" [ngClass]="{ 'hidden': !showSettings }">
+	<span style="float: left; margin-left: 20px; padding-top: 18px; display: block">Power loss: {{ rigCost ? rigCost : "..." }} EUR/day</span>
+
+	<a class="fas fa-cog cog" (click)="showSettings = !showSettings"></a>
+
+	<div class="control settings" [ngClass]="{ 'shown': showSettings }">
 		<div>
-			<input type="text" [(ngModel)]="this.nicename" />
-			<button (click)="setNicename()" [ngClass]="{ 'disabled': settingsWorking }">OK</button>
+			<div class="inline">
+				<button (click)="restart()">Restart</button>
+			</div>
+			<div class="inline">
+				<button (click)="reboot()">Reboot</button>
+			</div>
+			<div class="inline">
+				<button class="danger" (click)="remove()">Remove</button>
+			</div>
+			<div class="inline right">
+				<input type="text" [(ngModel)]="this.nicename" [disabled]="settingsWorking" />
+				<button (click)="saveSettings()" [ngClass]="{ 'disabled': settingsWorking }">Save</button>
+			</div>
+		</div>
+		<div>
+			<div class="inline">
+				<input type="checkbox" id="autoreboot" [disabled]="settingsWorking" [checked]="rigAutorebootEnabled" (change)="rigAutorebootEnabled = !rigAutorebootEnabled" />
+				<label for="autoreboot">Reboot after</label>
+				<input type="number" id="auto_number" [disabled]="settingsWorking" [(ngModel)]="rigAutoreboot.no_cards" />
+				<label for="auto_number">GPU(s) remain dead for</label>
+				<input type="number" id="auto_mins" [disabled]="settingsWorking" [(ngModel)]="rigAutoreboot.time" />
+				<label for="auto_mins">minutes</label>
+			</div>
+			<div class="inline right">
+				<label for="power">Power usage:</label>
+				<input type="number" id="power" [disabled]="settingsWorking" [(ngModel)]="rigPower" />
+				<label for="power">W</label>
+			</div>
+		</div>
+	</div>
+
+	<div class="control range">
+		<div class="inline">
+			<label for="date_start">Start date:</label>
+			<input type="datetime-local" id="date_start" [(ngModel)]="startDate" />
+		</div>
+
+		<div class="inline">
+			<label for="date_end">End date:</label>
+			<input type="datetime-local" id="date_end" [(ngModel)]="endDate" />
+		</div>
+
+		<div class="inline">
+			<button (click)="loadCharts()" class="mini">GO</button>
 		</div>
 	</div>
 </div>
@@ -13,14 +58,18 @@
 <div class="row">
 	<div class="chart">
 		<h2>Hashrate</h2>
-		<span>{{ rig.hashrate === undefined ? "..." : rig.hashrate }} Mh/s</span>
+		<span>{{ rig.hashrate === undefined ? "..." : rig.hashrate }} kh/s</span>
 
-		<canvas *ngIf="chLoaded" baseChart width="3" height="1"
-				[data]="chData"
-				[chartType]="'line'"
-				[options]="chOptions"
+		<rw-chart [data]="chData"></rw-chart>
+	</div>
+</div>
 
-		></canvas>
+<div class="row">
+	<div class="chart">
+		<h2>Net earnings</h2>
+		<span>{{ netWorth ? netWorth : "..." }} EUR/day</span>
+
+		<rw-chart [data]="zData"></rw-chart>
 	</div>
 </div>
 
@@ -29,25 +78,15 @@
 	<h2>Unit {{i}}</h2>
 	<div class="col chart">
 		<h3>Hashrate</h3>
-		<span>{{unit.hashrate}} Mh/s</span>
+		<span>{{unit.hashrate}} kh/s</span>
 
-		<canvas *ngIf="chLoaded" baseChart width="3" height="1"
-				[data]="chHashrates[i]"
-				[chartType]="'line'"
-				[options]="chOptions"
-
-		></canvas>
+		<rw-chart [data]="chHashrates[i] ? chHashrates[i] : []"></rw-chart>
 	</div>
 
 	<div class="col chart">
 		<h3>Temp</h3>
 		<span>{{unit.temp}} °C</span>
 
-		<canvas *ngIf="chLoaded" baseChart width="3" height="1"
-				[data]="chTemps[i]"
-				[chartType]="'line'"
-				[options]="chOptions"
-
-		></canvas>
+		<rw-chart [data]="chTemps[i] ? chTemps[i] : []"></rw-chart>
 	</div>
 </div>

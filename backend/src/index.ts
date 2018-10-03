@@ -1,9 +1,7 @@
 import {BackendServer} from './backendServer/BackendServer';
 import {Database} from './Database';
 import {RigServer} from './rigServer/RigServer';
-
-
-const pollRate = 10; // how often to fetch data from rigs (m)
+import {Settings} from './types/interface.Settings';
 
 
 const database = new Database();
@@ -11,7 +9,7 @@ database.connect().then(() => {
 	console.log("Database connected");
 });
 
-const rigServer = new RigServer(database, pollRate);
+const rigServer = new RigServer(database);
 rigServer.listen(8082, "0.0.0.0", () => {
 	console.log("Rig server listening on %d", 8082);
 });
@@ -19,4 +17,17 @@ rigServer.listen(8082, "0.0.0.0", () => {
 const backendServer = new BackendServer(database, rigServer);
 backendServer.listen(8080, () => {
 	console.log("Backend server listening on %d", 8080);
+});
+
+
+const defSettings: Settings = {
+	notifEmail: "email@example.com",
+	powerPrice: 0,
+	reportInterval: 10,
+	rigReporting: { enabled: false, time: 5 },
+	unitReporting: { enabled: false, time: 5 }
+};
+
+database.getSettings(null, defSettings).then((settings: Settings) => {
+	rigServer.setCollection(settings.reportInterval);
 });

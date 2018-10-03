@@ -6,10 +6,11 @@ import {Rig} from '../types/interface.Rig';
 import {DataParser} from './DataParser';
 import {Unit} from '../types/interface.Unit';
 import Timer = NodeJS.Timer;
-import {SituationReporting} from '../types/interface.SituationReporting';
-import {Situation} from '../types/interface.Situation';
+import {ProblemReporting} from '../types/interface.ProblemReporting';
+import {Problem} from '../types/interface.Problem';
 import moment = require('moment');
 import * as nodemailer from "nodemailer";
+import {clearInterval} from 'timers';
 
 export class RigServer {
 	private database: Database;
@@ -20,20 +21,19 @@ export class RigServer {
 
 	private rigReporting: number = null;
 	private unitReporting: number = null;
+	private reporting: Timer = null;
 
-	private readonly collectionInterval: number;
+	public collectionInterval: number;
+	private collection: Timer;
 
 	private mailTransporter;
 
-	public constructor(database: Database, collectionInterval: number){
+	public constructor(database: Database){
 		this.database = database;
-		this.collectionInterval = collectionInterval;
 
 		this.server = net.createServer(s => this.connection(s));
 
-		this.updateReporting(() => {
-			setInterval(() => this.reportingCheck(), 60000);
-		});
+		this.updateReporting();
 
 		this.mailTransporter = nodemailer.createTransport({
 			sendmail: true,
@@ -42,44 +42,69 @@ export class RigServer {
 		});
 	}
 
-	public updateReporting(callback?: () => void){
-		const defReporting: SituationReporting = { enabled: false };
+	public updateReporting(){
+		const defReporting: ProblemReporting = { enabled: false };
 		let i = 0;
 
-		this.database.getSetting("rig_reporting", JSON.stringify(defReporting)).then((data: string) => {
-			const rigReporting: SituationReporting = JSON.parse(data);
+		this.database.getSetting("rigReporting", JSON.stringify(defReporting)).then((data: string) => {
+			const rigReporting: ProblemReporting = JSON.parse(data);
 
 			if(rigReporting.enabled) this.rigReporting = rigReporting.time;
 			else this.rigReporting = null;
 
-			if(++i === 2 && callback !== undefined) callback();
+			if(++i === 2){
+				if(this.reporting) clearInterval(this.reporting);
+				this.reporting = setInterval(() => this.reportingCheck(), 60000);
+			}
 		});
 
-		this.database.getSetting("unit_reporting", JSON.stringify(defReporting)).then((data: string) => {
-			const unitReporting: SituationReporting = JSON.parse(data);
+		this.database.getSetting("unitReporting", JSON.stringify(defReporting)).then((data: string) => {
+			const unitReporting: ProblemReporting = JSON.parse(data);
 
 			if(unitReporting.enabled) this.unitReporting = unitReporting.time;
 			else this.unitReporting = null;
 
-			if(++i === 2 && callback !== undefined) callback();
+			if(++i === 2){
+				if(this.reporting) clearInterval(this.reporting);
+				this.reporting = setInterval(() => this.reportingCheck(), 60000);
+			}
 		});
 	}
 
 	private reportingCheck(){
-		// if(this.rigReporting === null && this.unitReporting === null) return;
+		this.database.getRigs().then((rigs) => {
+			rigs.forEach((r) => {
+				this.database.getRigDeadUnits(r.name).then((dead) => {
+					if(dead.count === 0) return;
 
-		this.database.getUnnotifiedSituations(1, 1).then((sits: Situation[]) => {
+					this.database.getRigAutoReboot(r.name).then((ar) => {
+						if(ar.no_cards === undefined || ar.time === undefined || ar.no_cards === 0) return;
+						if(dead.count < ar.no_cards) return;
+
+						const mins = moment().diff(moment(dead.time), "minutes", true);
+
+						if(mins >= ar.time){
+							this.rigReboot(r.name);
+						}
+					});
+				});
+			});
+		});
+
+		if(this.rigReporting === null && this.unitReporting === null) return;
+
+		this.database.getUnnotifiedProblems(this.rigReporting, this.unitReporting).then((sits: Problem[]) => {
 			if(sits.length === 0) return;
 
-			this.database.getSetting("email", "").then((email: string) => {
+			this.database.getSetting("notifEmail", "").then((email: string) => {
 				if(email === "") return;
 
 				let report = "";
 				const sitIds: number[] = [];
 
 				sits.forEach((sit) => {
-					report += "Rig " + sit.rig;
-					if(sit.type === 1) report += " unit " + sit.unit;
+					report += "Rig " + sit.rig_name;
+					if(sit.type === 1) report += " unit " + sit.unit_index;
 					report += " died " + moment(sit.time).format("LLL") + "\n";
 
 					sitIds.push(sit.id);
@@ -88,17 +113,47 @@ export class RigServer {
 				this.mailTransporter.sendMail({
 					from: "system@rig.sprint.ninja",
 					to: email,
-					subject: "Situation at rig.sprint.ninja",
+					subject: "Problem at rig.sprint.ninja",
 					text: report
 				}, (err, info) => {
 					if(err){
 						console.log("Email error: " + err);
 					}else{
-						this.database.situationReported(sitIds);
+						this.database.problemReported(sitIds);
 					}
 				});
 			});
 		});
+	}
+
+	public rigReboot(rig: string){
+		const i = this.rigs.findIndex((r) => r.rig.name === rig);
+		if(i === -1) return;
+
+		const buf: Buffer = Buffer.allocUnsafe(5);
+		buf.writeUInt8(2, 0);
+		buf.writeUInt32LE(0, 1);
+
+		this.rigs[i].socket.write(buf);
+	}
+
+	public rigRestart(rig: string){
+		const i = this.rigs.findIndex((r) => r.rig.name === rig);
+		if(i === -1) return;
+
+		const buf: Buffer = Buffer.allocUnsafe(5);
+		buf.writeUInt8(3, 0);
+		buf.writeUInt32LE(0, 1);
+
+		this.rigs[i].socket.write(buf);
+	}
+
+	public rigDisconnect(rig: string){
+		const i = this.rigs.findIndex((r) => r.rig.name === rig);
+		if(i === -1) return;
+
+		this.rigs[i].socket.destroy();
+		this.rigs.splice(i, 1);
 	}
 
 	public checkRig(rig: string){
@@ -157,8 +212,15 @@ export class RigServer {
 	public listen(port: number, host: string, callback?: () => void){
 		this.server.listen(port, host);
 		callback();
+	}
 
-		setInterval(() => this.collectData(), this.collectionInterval*1000*60);
+	public setCollection(interval: number){
+		if(this.collection){
+			clearTimeout(this.collection);
+		}
+
+		this.collectionInterval = interval;
+		this.collection = setInterval(() => this.collectData(), this.collectionInterval*1000*60);
 	}
 
 	private collectData(){
@@ -206,13 +268,13 @@ export class RigServer {
 				}
 			}
 
-			this.database.findUnitSituations(rig.name).then((units: number[]) => {
+			this.database.findUnitsWithProblems(rig.name).then((units: number[]) => {
 				rig.units.forEach((u, i) => {
 					if(u.hashrate === 0 && units.findIndex((ui) => ui === i) === -1)
-						this.database.addSituation(rig.name, i);
+						this.database.addProblem(rig.name, i);
 
 					if(u.hashrate !== 0 && units.findIndex((ui) => ui === i) !== -1)
-						this.database.resolveSituation(rig.name, i);
+						this.database.resolveProblem(rig.name, i);
 				});
 			});
 		});
@@ -223,7 +285,7 @@ export class RigServer {
 		socket.on('error', (err) => this.deregisterRig(socket));
 		socket.on('timeout', () => this.deregisterRig(socket));
 
-		setTimeout(() => this.collectData(), 5000);
+		// setTimeout(() => this.collectData(), 5000);
 	}
 
 	private dataReport(report: number, rig: Rig){
@@ -240,8 +302,10 @@ export class RigServer {
 			db.rigGetUnits(rig.name).then((units: Unit[]) => {
 				rig.units.forEach((unit, i) => {
 					if(i >= units.length) db.addUnit(rig.name, i, unit);
-					else if(units[i].make !== unit.make || units[i].model !== unit.model || units[i].type !== unit.type)
-						db.updateUnit(rig.name, i, unit);
+					/* else if(units[i].make !== unit.make || units[i].model !== unit.model || units[i].type !== unit.type)
+						db.updateUnit(rig.name, i, unit); */
+
+					// TODO: unit updating
 				});
 			});
 		}
@@ -251,14 +315,14 @@ export class RigServer {
 			else registerUnits(this.database);
 		});
 
-		this.database.resolveSituation(rig.name);
+		this.database.resolveProblem(rig.name);
 	}
 
 	private deregisterRig(socket: Socket){
 		const i = this.rigs.findIndex((r) => r.socket === socket);
 		if(i === -1) return;
 
-		this.database.addSituation(this.rigs[i].rig.name);
+		this.database.addProblem(this.rigs[i].rig.name);
 
 		console.log("Deregistering %s: %s", socket.remoteAddress, this.rigs[i].rig.name);
 		this.rigs.splice(i, 1);

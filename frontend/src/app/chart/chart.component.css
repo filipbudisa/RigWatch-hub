@@ -1,0 +1,2 @@
+.chartholder { height: 0; padding-bottom: 33.33%; position: relative; clear: both; }
+	.chartholder img { display: block; width: auto; height: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }

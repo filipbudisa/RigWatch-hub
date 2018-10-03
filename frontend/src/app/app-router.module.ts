@@ -2,12 +2,22 @@ import { NgModule } from "@angular/core";
 import { RouterModule, Routes } from "@angular/router";
 import { OverviewComponent } from "./overview/overview.component";
 import { RigComponent } from "./rig/rig.component";
-import { SituationsComponent } from "./situations/situations.component";
+import { ProblemsComponent } from "./problems/problems.component";
+import { SettingsComponent } from "./settings/settings.component";
+import { StatisticsComponent } from "./statistics/statistics.component";
 
 const appRoutes: Routes = [
 	{
-		path: "situations",
-		component: SituationsComponent
+		path: "problems",
+		component: ProblemsComponent
+	},
+	{
+		path: "settings",
+		component: SettingsComponent
+	},
+	{
+		path: "statistics",
+		component: StatisticsComponent
 	},
 	{
 		path: "rig/:rig",

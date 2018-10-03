@@ -1,0 +1,12 @@
+<div>
+	<canvas *ngIf="data.length !== 0" baseChart width="3" height="1"
+			[data]="data"
+			[chartType]="'line'"
+			[options]="options"
+
+	></canvas>
+
+	<div class="chartholder" *ngIf="data.length === 0">
+		<img src="assets/spinner.gif"/>
+	</div>
+</div>

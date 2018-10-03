@@ -1,7 +1,9 @@
 import { Component, OnInit } from "@angular/core";
-import { ChartPoint } from "../../../../backend/src/types/interface.ChartPoint";
+import { ChartParams } from "../../../../backend/src/types/returnables/interface.ChartParams";
 import { BackendService } from "../backend.service";
 import * as moment from "moment";
+import { EthereumService } from "../ethereum.service";
+import { DataStoreService } from "../dataStore.service";
 
 @Component({
 	selector: "app-overview",
@@ -11,99 +13,82 @@ import * as moment from "moment";
 export class OverviewComponent implements OnInit {
 	public hashrate: number;
 	public chData: { x: string, y: number }[];
-	public chLoaded: boolean = false;
 
-	public get chOptions(){ return OverviewComponent.chOptions; }
-	public static readonly chOptions: any = {
-		label: "",
-		scales: {
-			yAxes: [{
-				ticks: { beginAtZero: true },
-				gridLines: {
-					display: false
-				},
-				scaleLabel: {
-					display: false
-				}
-			}],
-			xAxes: [{
-				type: "time",
-				time: {
-					tooltipFormat: "LLL",
-					minUnit: "minute"
-				},
-				gridLines: {
-					display: false
-				},
-				scaleLabel: {
-					display: false
-				}
-			}]
-		},
-		legend: {
-			display: false
-		},
-		tooltips: {
-			titleFontFamily: '"Open Sans", sans-serif',
-			titleFontSize: 16,
-			titleSpacing: 0,
+	public ethPrice: number;
+	public ethData: { x: string, y: number }[];
 
+	public zData: { x: string, y: number }[];
+	public netWorth: number;
 
-			bodyFontFamily: '"Open Sans", sans-serif',
-			bodyFontSize: 14,
-			bodySpacing: 0,
+	public startDate: string = "";
+	public endDate: string = "";
 
-			footerSpacing: 0,
-			footerMarginTop: 0,
-
-			caretSize: 0,
-			cornerRadius: 0,
-			xPadding: 10,
-			yPadding: 10,
-			displayColors: false,
-
-			intersect: false
-		},
-		elements: {
-			point:{
-				radius: 0,
-				hitRadius: 0,
-				hoverRadius: 0,
-				hoverBorderWidth: 0
-			},
-			line: {
-				tension: 0,
-				fill: false,
-				borderColor: "rgba(255, 94, 255, 1)",
-				borderWidth: 1
-			}
-		}
-	};
-
-	public showSettings: boolean = false;
-
-	constructor(private backend: BackendService){ }
+	constructor(private backend: BackendService, private eth: EthereumService, private dataStore: DataStoreService){ }
 
 	ngOnInit(){
+		this.endDate = moment().format("YYYY-MM-DDTHH:mm:ss");
+		this.startDate = moment().subtract(1, "day").format("YYYY-MM-DDTHH:mm:ss");
+
 		this.backend.getHashrate().subscribe((data) => {
 			this.hashrate = data.hashrate;
 		});
 
-		const start = moment().format("YYYY-MM-DD HH:mm:ss");
-		const end = moment().subtract(1, "day").format("YYYY-MM-DD HH:mm:ss");
+		this.eth.getPrice().then((price: number) => this.ethPrice = price);
 
-		this.backend.getChart({ start: start, end: end }).subscribe((data) => {
-			this.chData = [];
+		this.loadCharts();
+	}
 
+	loadCharts(){
+		const momentStart = moment(this.startDate);
+		const momentEnd = moment(this.endDate);
+
+		const params: ChartParams = {
+			start: momentStart.format("YYYY-MM-DD HH:mm:ss"),
+			end: momentEnd.format("YYYY-MM-DD HH:mm:ss")
+		};
+
+		this.chData = this.ethData = this.zData = [];
+
+		this.backend.getChart(params).subscribe((data) => {
 			data.points.forEach((p) => {
-				this.chData.push({ x: p.time, y: p.value });
+				this.chData.push({ x: p.time, y: Math.max(p.value, 0) });
 			});
 
-			this.chLoaded = true;
+			this.loadNetworth();
+		});
+
+		const hours = momentEnd.diff(momentStart, "hours", true);
+		this.eth.getPoints(Math.max(hours, 1)).then((data) => {
+			this.ethData = [];
+
+			data.forEach((point) => {
+				this.ethData.push({ x: moment.unix(point.time).format("YYYY-MM-DD HH:mm:ss"), y: point.close });
+			});
 		});
 	}
 
-	setNicename(){
+	loadNetworth(){
+		let cost: number = 0;
+		let rigs: number = 0;
 
+		this.backend.getSettings().subscribe((s) => {
+			const kwh = s.settings.powerPrice;
+
+			this.dataStore.rigs.forEach((r) => {
+				this.backend.getRig(r.name).subscribe((rig) => {
+					cost += Math.round(24 * kwh * rig.power) / 1000;
+
+					if(++rigs === this.dataStore.rigs.length){
+						this.zData = [];
+						this.chData.forEach((d) => {
+							const earnings = 0.02897739785300082 * (d.y/1000) + 0.0007991005829243384;
+							this.zData.push({ x: d.x, y: earnings-cost });
+						});
+
+						this.netWorth = 0.02897739785300082 * (this.hashrate/1000) + 0.0007991005829243384 - cost;
+					}
+				});
+			});
+		});
 	}
 }

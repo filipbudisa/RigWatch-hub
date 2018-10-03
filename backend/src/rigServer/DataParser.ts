@@ -10,33 +10,48 @@ export class DataParser {
 	}
 
 	private static parseClaymore(data: string, name: string): Rig {
-		const cData: DataClaymore = <DataClaymore> JSON.parse(data);
-		const rigData: string[] = cData.result[2].split(";");
+		let rig: Rig;
 
-		const rig: Rig = {
-			name: name,
-			units: [],
+		try{
+			const cData: DataClaymore = <DataClaymore> JSON.parse(data);
+			const rigData: string[] = cData.result[2].split(";");
 
-			runtime: parseFloat(cData.result[1]),
-			hashrate: parseFloat(rigData[0]),
-			shares: rigData[1] ? parseFloat(rigData[1]) : undefined
-		};
+			rig = {
+				name: name,
+				units: [],
 
-		const unitRates = cData.result[3].split(";");
-		const unitTemps = cData.result[6].split(";");
-
-		for(let i = 0; i < unitRates.length; i++){
-			const unit: Unit = {
-				make: UnitMake.AMD,
-				model: "RX580",
-				type: UnitType.GPU,
-
-				hashrate: parseFloat(unitRates[i]),
-				temp: parseFloat(unitTemps[i*2])
+				// runtime: parseFloat(cData.result[1]),
+				hashrate: parseFloat(rigData[0]),
+				// shares: rigData[1] ? parseFloat(rigData[1]) : undefined
 			};
 
-			rig.units.push(unit);
+			const unitRates = cData.result[3].split(";");
+			const unitTemps = cData.result[6].split(";");
+
+			for(let i = 0; i < unitRates.length; i++){
+				const unit: Unit = {
+					/*make: UnitMake.AMD,
+					model: "RX580",
+					type: UnitType.GPU,*/
+
+					hashrate: parseFloat(unitRates[i]),
+					temp: parseFloat(unitTemps[i*2])
+				};
+
+				rig.units.push(unit);
+			}
+		}catch(e){
+			console.log("Error parsing rig data string:");
+			console.log(data);
+
+			rig = {
+				name: name,
+				units: [],
+				hashrate: 0
+			};
 		}
+
+
 
 		return rig;
 	}

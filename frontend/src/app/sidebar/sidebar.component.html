@@ -1,7 +1,9 @@
 <div id="sidebar">
 	<ul class="items">
 		<li><a routerLink="/">Overview</a></li>
-		<li><a routerLink="/rig/{{rig.name}}" *ngFor="let rig of dataStore.rigs">{{rig.nicename}}</a></li>
-		<li><a routerLink="/situations">Situations</a></li>
+		<li *ngFor="let rig of dataStore.rigs"><a routerLink="/rig/{{rig.name}}">{{ dataStore.getRigNicename(rig.name) }}</a></li>
+		<li><a routerLink="/problems">Problems</a></li>
+		<li><a routerLink="/statistics">Statistics</a></li>
+		<li><a routerLink="/settings">Settings</a></li>
 	</ul>
 </div>

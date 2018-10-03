@@ -1,5 +1,4 @@
-import {ConnectableObservable} from 'rxjs/observable/ConnectableObservable';
-import {Subscription} from 'rxjs/Subscription';
+import {ConnectableObservable, Subscription} from 'rxjs';
 
 export class ACObservable<T> {
 	private cons: number;

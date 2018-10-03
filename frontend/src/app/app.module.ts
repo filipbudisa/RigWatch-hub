@@ -1,5 +1,5 @@
 import { BrowserModule } from "@angular/platform-browser";
-import { NgModule } from "@angular/core";
+import { Injector, NgModule } from "@angular/core";
 
 
 import { AppComponent } from "./app.component";
@@ -9,10 +9,15 @@ import { SidebarComponent } from "./sidebar/sidebar.component";
 import { OverviewComponent } from "./overview/overview.component";
 import { BackendService } from "./backend.service";
 import { ChartsModule } from "ng2-charts";
-import { RigComponent } from './rig/rig.component';
+import { RigComponent } from "./rig/rig.component";
 import { DataStoreService } from "./dataStore.service";
 import { FormsModule } from "@angular/forms";
-import { SituationsComponent } from './situations/situations.component';
+import { ProblemsComponent } from "./problems/problems.component";
+import { EthereumService } from "./ethereum.service";
+import { ChartComponent } from "./chart/chart.component";
+import { createCustomElement } from "@angular/elements";
+import { SettingsComponent } from './settings/settings.component';
+import { StatisticsComponent } from './statistics/statistics.component';
 
 
 @NgModule({
@@ -21,7 +26,10 @@ import { SituationsComponent } from './situations/situations.component';
 		SidebarComponent,
 		OverviewComponent,
 		RigComponent,
-		SituationsComponent
+		ProblemsComponent,
+		ChartComponent,
+		SettingsComponent,
+		StatisticsComponent
 	],
 	imports: [
 		BrowserModule,
@@ -30,10 +38,16 @@ import { SituationsComponent } from './situations/situations.component';
 		ChartsModule,
 		FormsModule
 	],
-	providers: [ SidebarComponent, BackendService, DataStoreService ],
-	bootstrap: [ AppComponent ]
+	providers: [ SidebarComponent, BackendService, DataStoreService, EthereumService ],
+	bootstrap: [ AppComponent ],
+	entryComponents: [ ChartComponent ]
 })
 export class AppModule {
-	constructor(){
+	constructor(private injector: Injector){
+	}
+
+	ngDoBootstrap(){
+		const chart = createCustomElement(ChartComponent, { injector: this.injector });
+		customElements.define("rw-chart", chart);
 	}
 }

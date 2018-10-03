@@ -1,0 +1,42 @@
+<div id="header">
+	<h1>Statistics</h1>
+
+	<div class="control range">
+		<div class="inline">
+			<label for="date_start">Start date:</label>
+			<input type="datetime-local" id="date_start" [(ngModel)]="startDate"/>
+		</div>
+
+		<div class="inline">
+			<label for="date_end">End date:</label>
+			<input type="datetime-local" id="date_end" [(ngModel)]="endDate"/>
+		</div>
+
+		<div class="inline">
+			<button (click)="load()" class="mini">GO</button>
+		</div>
+	</div>
+</div>
+
+<div class="row stats">
+	<div class="col">
+		<p>Total earnings: {{ stats.earnings }} €</p>
+		<p>Avg. earnings</p>
+		<ul>
+			<li>per day: {{ perDay }} €</li>
+			<li>per week: {{ perWeek }} €</li>
+		</ul>
+	</div>
+	<div class="col">
+		<p>Number of rig failures: {{ rigF }}</p>
+		<ul>
+			<li *ngFor="let rig of stats.rig">{{ dataStore.getRigNicename(rig.rig_name) }}: {{ rig.count }}</li>
+		</ul>
+	</div>
+	<div class="col">
+		<p>Number of unit failures: {{ unitF }}</p>
+		<ul>
+			<li *ngFor="let unit of stats.unit">{{ dataStore.getRigNicename(unit.rig_name) }}, unit {{ unit.unit_index }}: {{ unit.count }}</li>
+		</ul>
+	</div>
+</div>
